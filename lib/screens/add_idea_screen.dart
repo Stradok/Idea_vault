@@ -77,10 +77,13 @@ class _AddIdeaScreenState extends State<AddIdeaScreen> {
       );
       return;
     }
-    final isLinux = !kIsWeb && Platform.isLinux;
-    final config = isLinux
-        ? const RecordConfig(encoder: AudioEncoder.pcm16bits)
-        : const RecordConfig(encoder: AudioEncoder.aacLc);
+    final config = kIsWeb
+        // Browsers record via MediaRecorder — opus/webm has by far the
+        // widest support; aacLc (mobile's default) isn't reliably supported.
+        ? const RecordConfig(encoder: AudioEncoder.opus)
+        : (!kIsWeb && Platform.isLinux)
+            ? const RecordConfig(encoder: AudioEncoder.pcm16bits)
+            : const RecordConfig(encoder: AudioEncoder.aacLc);
     await _recorder.start(config, path: path);
     setState(() {
       _isRecording = true;
@@ -183,12 +186,21 @@ class _AddIdeaScreenState extends State<AddIdeaScreen> {
                 borderRadius: BorderRadius.circular(14),
                 child: Stack(
                   children: [
-                    Image.file(
-                      File(_localImagePath!),
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover,
-                    ),
+                    // On web, image_picker returns a blob: URL (no real
+                    // filesystem) — Image.network resolves that directly.
+                    kIsWeb
+                        ? Image.network(
+                            _localImagePath!,
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.file(
+                            File(_localImagePath!),
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                          ),
                     Positioned(
                       top: 8,
                       right: 8,
@@ -311,7 +323,8 @@ class _AudioPreview extends StatelessWidget {
             tooltip: 'Play',
             onPressed: () async {
               await player.stop();
-              await player.play(DeviceFileSource(path));
+              // record's web output is a blob: URL, not a real file path.
+              await player.play(kIsWeb ? UrlSource(path) : DeviceFileSource(path));
             },
             icon: const Icon(Icons.play_circle_outline),
           ),

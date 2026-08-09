@@ -3,9 +3,12 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path_provider/path_provider.dart';
+
+import 'blob_url.dart';
 
 /// Thrown when the user's Google Drive doesn't have enough free space left
 /// to safely store new media.
@@ -121,6 +124,16 @@ class DriveClient {
     return jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
   }
 
+  /// The actual stored mimeType for a media file — needed because a photo
+  /// or voice note can be uploaded from one platform (e.g. web's
+  /// audio/webm) and viewed from another (mobile), so the viewer can't just
+  /// assume its own platform's format.
+  Future<String?> fileMimeType(String fileId) async {
+    final api = await _driveApi();
+    final file = await api.files.get(fileId, $fields: 'mimeType') as drive.File;
+    return file.mimeType;
+  }
+
   /// All idea JSON files in the app folder, newest first.
   Future<List<drive.File>> listIdeaFiles() async {
     final api = await _driveApi();
@@ -153,19 +166,36 @@ class DriveClient {
     return file.id!;
   }
 
-  /// Downloads [fileId] to a local cache file (skipping the download if it's
-  /// already cached) and returns that local [File].
-  Future<File> downloadToCache(String fileId, String cacheFileName) async {
+  final Map<String, String> _webBlobCache = {};
+
+  /// Downloads [fileId] and returns a local reference to display it from:
+  /// a real file path on mobile/desktop (cached to disk, skipping the
+  /// download if already cached), or a `blob:` object URL on web (there's
+  /// no real filesystem to cache to there — kept in an in-memory map for
+  /// the session instead).
+  Future<String> downloadToCache(
+    String fileId,
+    String cacheFileName, {
+    String contentType = 'application/octet-stream',
+  }) async {
+    if (kIsWeb) {
+      final cached = _webBlobCache[fileId];
+      if (cached != null) return cached;
+      final bytes = await _downloadBytes(fileId);
+      final url = createBlobUrl(bytes, contentType);
+      _webBlobCache[fileId] = url;
+      return url;
+    }
     final dir = await getApplicationCacheDirectory();
     final cacheDir = Directory('${dir.path}/drive_media');
     if (!await cacheDir.exists()) {
       await cacheDir.create(recursive: true);
     }
     final localFile = File('${cacheDir.path}/$cacheFileName');
-    if (await localFile.exists()) return localFile;
+    if (await localFile.exists()) return localFile.path;
     final bytes = await _downloadBytes(fileId);
     await localFile.writeAsBytes(bytes);
-    return localFile;
+    return localFile.path;
   }
 
   Future<Uint8List> _downloadBytes(String fileId) async {

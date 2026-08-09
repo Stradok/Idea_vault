@@ -1,10 +1,23 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/idea.dart';
 import 'drive/drive_client.dart';
+
+/// Reads bytes from a local media reference produced by image_picker/record.
+/// On web that reference is a `blob:` object URL (no real filesystem), which
+/// `http.get` can fetch directly; on mobile/desktop it's a real file path.
+Future<List<int>> _readLocalBytes(String ref) async {
+  if (kIsWeb) {
+    final res = await http.get(Uri.parse(ref));
+    return res.bodyBytes;
+  }
+  return File(ref).readAsBytes();
+}
 
 class IdeaMediaPaths {
   final String? imagePath;
@@ -105,10 +118,20 @@ class DriveMediaService implements MediaService {
 
   DriveMediaService(this._drive);
 
+  // record's web output is opus/webm (near-universal browser support);
+  // mobile/desktop records aacLc/pcm16bits into an .m4a container. A single
+  // running app instance is only ever one platform, so branching on kIsWeb
+  // here is safe without threading the format through every call site.
+  String get _audioExtension => kIsWeb ? 'webm' : 'm4a';
+  String get _audioContentType => kIsWeb ? 'audio/webm' : 'audio/mp4';
+
   @override
   Future<String> tempAudioPath(String ideaId) async {
+    // record's web implementation ignores this path entirely (it records to
+    // an in-memory blob) — path_provider has no real temp dir on web anyway.
+    if (kIsWeb) return 'idea_vault/$ideaId.$_audioExtension';
     final dir = await getTemporaryDirectory();
-    return '${dir.path}/idea_vault/$ideaId.m4a';
+    return '${dir.path}/idea_vault/$ideaId.$_audioExtension';
   }
 
   @override
@@ -120,14 +143,17 @@ class DriveMediaService implements MediaService {
     String? imageFileId;
     String? audioFileId;
     if (localImagePath != null) {
-      final bytes = await File(localImagePath).readAsBytes();
+      final bytes = await _readLocalBytes(localImagePath);
       imageFileId =
           await _drive.uploadBytes('idea-$ideaId-image.jpg', bytes, 'image/jpeg');
     }
     if (localAudioPath != null) {
-      final bytes = await File(localAudioPath).readAsBytes();
-      audioFileId =
-          await _drive.uploadBytes('idea-$ideaId-audio.m4a', bytes, 'audio/mp4');
+      final bytes = await _readLocalBytes(localAudioPath);
+      audioFileId = await _drive.uploadBytes(
+        'idea-$ideaId-audio.$_audioExtension',
+        bytes,
+        _audioContentType,
+      );
     }
     return IdeaMediaPaths(imagePath: imageFileId, audioPath: audioFileId);
   }
@@ -136,13 +162,23 @@ class DriveMediaService implements MediaService {
   Future<void> resolveMediaUrls(Idea idea) async {
     final imageId = idea.imagePath;
     if (imageId != null) {
-      final file = await _drive.downloadToCache(imageId, '$imageId.jpg');
-      idea.imageUrl = file.path;
+      idea.imageUrl = await _drive.downloadToCache(
+        imageId,
+        '$imageId.jpg',
+        contentType: 'image/jpeg',
+      );
     }
     final audioId = idea.audioPath;
     if (audioId != null) {
-      final file = await _drive.downloadToCache(audioId, '$audioId.m4a');
-      idea.audioUrl = file.path;
+      // Use the file's actual stored format, not this platform's default —
+      // it may have been recorded on a different platform (web vs mobile).
+      final mimeType = await _drive.fileMimeType(audioId) ?? _audioContentType;
+      final extension = mimeType.contains('webm') ? 'webm' : 'm4a';
+      idea.audioUrl = await _drive.downloadToCache(
+        audioId,
+        '$audioId.$extension',
+        contentType: mimeType,
+      );
     }
   }
 

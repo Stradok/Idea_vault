@@ -67,7 +67,69 @@ class IdeaVaultApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
+      // Wraps the whole Navigator (every route, including ones pushed later
+      // via Navigator.push — not just the initial `home` route) so
+      // context.read<...>() works from any screen. Providers being built
+      // *inside* `home` instead of here was the bug: pushed routes are
+      // sibling overlay entries, not descendants of `home`'s subtree.
+      builder: (context, child) {
+        if (!configured) return child!;
+        return AppProviders(child: child!);
+      },
       home: configured ? const AuthGate() : const SetupScreen(),
+    );
+  }
+}
+
+/// Owns the app's singleton services and provides them above the Navigator
+/// (see the `builder` comment in [IdeaVaultApp]) so every screen — including
+/// ones reached via Navigator.push — can see them.
+class AppProviders extends StatefulWidget {
+  final Widget child;
+  const AppProviders({super.key, required this.child});
+
+  @override
+  State<AppProviders> createState() => _AppProvidersState();
+}
+
+class _AppProvidersState extends State<AppProviders> {
+  late final AuthService _authService;
+  late final ReminderService _reminders;
+  late final Backend _backend;
+  late final IdeaVault _vault;
+
+  @override
+  void initState() {
+    super.initState();
+    final client = Supabase.instance.client;
+    _authService = AuthService();
+    _reminders = ReminderService();
+    _backend = Backend(client, _authService.drive);
+    _vault = IdeaVault(
+      store: _backend.ideas,
+      media: _backend.media,
+      reminders: _reminders,
+    );
+    _reminders.init();
+  }
+
+  @override
+  void dispose() {
+    _vault.dispose();
+    _authService.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        Provider.value(value: _authService),
+        Provider.value(value: _backend),
+        Provider.value(value: _reminders),
+        ChangeNotifierProvider.value(value: _vault),
+      ],
+      child: widget.child,
     );
   }
 }
@@ -122,10 +184,6 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  late final AuthService _authService;
-  late final Backend _backend;
-  late final ReminderService _reminders;
-  late final IdeaVault _vault;
   late final Stream<AuthState> _authStream;
   bool _ready = false;
 
@@ -133,15 +191,6 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     final client = Supabase.instance.client;
-    _authService = AuthService();
-    _reminders = ReminderService();
-    _backend = Backend(client, _authService.drive);
-    _vault = IdeaVault(
-      store: _backend.ideas,
-      media: _backend.media,
-      reminders: _reminders,
-    );
-    _reminders.init();
     _authStream = client.auth.onAuthStateChange;
     _handleInitialSession(client);
   }
@@ -154,7 +203,7 @@ class _AuthGateState extends State<AuthGate> {
         // is already restored independently by supabase_flutter) so
         // DriveClient has a signed-in GoogleSignIn.currentUser before we
         // load ideas.
-        await _authService.warmUpGoogleSession();
+        await context.read<AuthService>().warmUpGoogleSession();
         await _activateUser(session.user.id);
       } catch (_) {
         // Fall through to showing the (possibly empty) home screen rather
@@ -165,9 +214,10 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _activateUser(String userId) async {
-    _vault.setUserId(userId);
+    final vault = context.read<IdeaVault>();
+    vault.setUserId(userId);
     try {
-      await _vault.load();
+      await vault.load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -178,41 +228,27 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   @override
-  void dispose() {
-    _vault.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider.value(value: _authService),
-        Provider.value(value: _backend),
-        Provider.value(value: _reminders),
-        ChangeNotifierProvider.value(value: _vault),
-      ],
-      child: StreamBuilder<AuthState>(
-        stream: _authStream,
-        builder: (context, snapshot) {
-          final session = snapshot.data?.session;
-          if (!_ready) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          }
-          if (session == null) {
-            return const AuthScreen();
-          }
-          final vault = context.read<IdeaVault>();
-          if (vault.userId != session.user.id) {
-            WidgetsBinding.instance.addPostFrameCallback((_) async {
-              if (mounted && vault.userId != session.user.id) {
-                await _activateUser(session.user.id);
-              }
-            });
-          }
-          return const HomeScreen();
-        },
-      ),
+    return StreamBuilder<AuthState>(
+      stream: _authStream,
+      builder: (context, snapshot) {
+        final session = snapshot.data?.session;
+        if (!_ready) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (session == null) {
+          return const AuthScreen();
+        }
+        final vault = context.read<IdeaVault>();
+        if (vault.userId != session.user.id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (mounted && vault.userId != session.user.id) {
+              await _activateUser(session.user.id);
+            }
+          });
+        }
+        return const HomeScreen();
+      },
     );
   }
 }

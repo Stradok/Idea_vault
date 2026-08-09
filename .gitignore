@@ -50,3 +50,10 @@ app.*.map.json
 # Google OAuth client secrets — never commit these.
 client_secret_*.json
 OAuth_Client_details.md
+
+# Built APKs — distributed via GitHub Releases, not committed to the repo
+# (would bloat repo history with 50MB+ binaries on every build).
+/apk/
+
+# Flutter SDK cloned by vercel-build.sh during the web deploy — never commit.
+/_flutter_sdk/

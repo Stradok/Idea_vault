@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -247,13 +248,19 @@ class _ResearchTabState extends State<_ResearchTab> {
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                // imageUrl is a local file path — media is cached from Drive
-                // on load, not served from a network URL. See DriveMediaService.
-                child: Image.file(
-                  File(widget.idea.imageUrl!),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
+                // imageUrl is a local cache reference from DriveMediaService:
+                // a real file path on mobile/desktop, a blob: URL on web.
+                child: kIsWeb
+                    ? Image.network(
+                        widget.idea.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      )
+                    : Image.file(
+                        File(widget.idea.imageUrl!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
               ),
             ],
             if (widget.idea.audioUrl != null) ...[
@@ -872,9 +879,11 @@ class _AudioNoteCardState extends State<_AudioNoteCard> {
                     await _player.pause();
                   } else {
                     await _player.stop();
-                    // widget.url is a local cached file path (see
-                    // DriveMediaService), not a network URL.
-                    await _player.play(DeviceFileSource(widget.url));
+                    // widget.url is a local cache reference from
+                    // DriveMediaService: a real file path on mobile/desktop,
+                    // a blob: URL on web.
+                    await _player.play(
+                        kIsWeb ? UrlSource(widget.url) : DeviceFileSource(widget.url));
                   }
                 },
                 icon: Icon(playing
