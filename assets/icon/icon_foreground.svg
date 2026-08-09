@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- bulb glass -->
+  <circle cx="512" cy="440" r="150" fill="#FFD54F"/>
+
+  <!-- filament -->
+  <polyline points="468,388 468,472 512,432 556,472 556,388"
+            fill="none" stroke="#F57C00" stroke-width="13"
+            stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- bulb neck -->
+  <rect x="459" y="580" width="106" height="28" rx="8" fill="#FFF3D0"/>
+
+  <!-- screw base -->
+  <rect x="463" y="608" width="98" height="96" rx="14" fill="#ECEFF1"/>
+  <rect x="463" y="634" width="98" height="12" fill="#1565C0"/>
+  <rect x="463" y="660" width="98" height="12" fill="#1565C0"/>
+  <rect x="463" y="686" width="98" height="12" fill="#1565C0"/>
+
+  <!-- base tip -->
+  <rect x="484" y="704" width="56" height="28" rx="10" fill="#CFD8DC"/>
+</svg>

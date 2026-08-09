@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="#1565C0"/>
+
+  <!-- glow rays -->
+  <rect x="502" y="140" width="20" height="64" rx="10" fill="#7FB3FF"/>
+  <rect x="740" y="384" width="64" height="20" rx="10" fill="#7FB3FF"/>
+  <rect x="220" y="384" width="64" height="20" rx="10" fill="#7FB3FF"/>
+
+  <!-- bulb glass -->
+  <circle cx="512" cy="430" r="192" fill="#FFD54F"/>
+
+  <!-- filament -->
+  <polyline points="456,360 456,470 512,420 568,470 568,360"
+            fill="none" stroke="#F57C00" stroke-width="16"
+            stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- bulb neck -->
+  <rect x="447" y="588" width="130" height="34" rx="10" fill="#FFF3D0"/>
+
+  <!-- screw base -->
+  <rect x="452" y="622" width="120" height="118" rx="16" fill="#ECEFF1"/>
+  <rect x="452" y="654" width="120" height="14" fill="#1565C0"/>
+  <rect x="452" y="686" width="120" height="14" fill="#1565C0"/>
+  <rect x="452" y="718" width="120" height="14" fill="#1565C0"/>
+
+  <!-- base tip -->
+  <rect x="478" y="740" width="68" height="34" rx="12" fill="#CFD8DC"/>
+</svg>

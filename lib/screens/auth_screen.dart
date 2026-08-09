@@ -70,7 +70,7 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: null,
+        redirectTo: 'io.supabase.ideavault://login-callback',
       );
     } on AuthException catch (e) {
       setState(() => _error = e.message);

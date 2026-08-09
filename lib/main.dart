@@ -13,7 +13,11 @@ import 'state/idea_vault.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Missing/unreadable .env — fall through to the setup screen below.
+  }
 
   if (!AppConfig.isConfigured) {
     runApp(const IdeaVaultApp(configured: false));
