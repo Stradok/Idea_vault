@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/idea.dart';
+import 'drive/drive_client.dart';
 
 class IdeaMediaPaths {
   final String? imagePath;
@@ -19,7 +20,7 @@ abstract class MediaService {
     String? localAudioPath,
   });
   Future<void> resolveMediaUrls(Idea idea);
-  Future<void> deleteIdeaMedia(String ideaId);
+  Future<void> deleteIdeaMedia(Idea idea);
 }
 
 class SupabaseMediaService implements MediaService {
@@ -82,24 +83,72 @@ class SupabaseMediaService implements MediaService {
   }
 
   @override
-  Future<void> deleteIdeaMedia(String ideaId) async {
+  Future<void> deleteIdeaMedia(Idea idea) async {
     final paths = [
-      if (await _exists(_imagePath(ideaId))) _imagePath(ideaId),
-      if (await _exists(_audioPath(ideaId))) _audioPath(ideaId),
+      if (idea.imagePath != null) idea.imagePath!,
+      if (idea.audioPath != null) idea.audioPath!,
     ];
     if (paths.isNotEmpty) {
       await _client.storage.from(_bucket).remove(paths);
     }
   }
+}
 
-  Future<bool> _exists(String path) async {
-    try {
-      final res = await _client.storage
-          .from(_bucket)
-          .list(path: path.substring(0, path.lastIndexOf('/')));
-      return res.any((f) => f.name == path.substring(path.lastIndexOf('/') + 1));
-    } catch (_) {
-      return false;
+/// Photos/voice notes stored as files in the user's own Google Drive
+/// (`Idea.imagePath`/`audioPath` hold Drive file IDs, not storage paths).
+/// Display goes through a local cache — Drive has no equivalent of a
+/// short-lived signed URL for private files, so [resolveMediaUrls] downloads
+/// once and points `imageUrl`/`audioUrl` at the local cached file path
+/// instead of a network URL.
+class DriveMediaService implements MediaService {
+  final DriveClient _drive;
+
+  DriveMediaService(this._drive);
+
+  @override
+  Future<String> tempAudioPath(String ideaId) async {
+    final dir = await getTemporaryDirectory();
+    return '${dir.path}/idea_vault/$ideaId.m4a';
+  }
+
+  @override
+  Future<IdeaMediaPaths> uploadIdeaMedia({
+    required String ideaId,
+    String? localImagePath,
+    String? localAudioPath,
+  }) async {
+    String? imageFileId;
+    String? audioFileId;
+    if (localImagePath != null) {
+      final bytes = await File(localImagePath).readAsBytes();
+      imageFileId =
+          await _drive.uploadBytes('idea-$ideaId-image.jpg', bytes, 'image/jpeg');
     }
+    if (localAudioPath != null) {
+      final bytes = await File(localAudioPath).readAsBytes();
+      audioFileId =
+          await _drive.uploadBytes('idea-$ideaId-audio.m4a', bytes, 'audio/mp4');
+    }
+    return IdeaMediaPaths(imagePath: imageFileId, audioPath: audioFileId);
+  }
+
+  @override
+  Future<void> resolveMediaUrls(Idea idea) async {
+    final imageId = idea.imagePath;
+    if (imageId != null) {
+      final file = await _drive.downloadToCache(imageId, '$imageId.jpg');
+      idea.imageUrl = file.path;
+    }
+    final audioId = idea.audioPath;
+    if (audioId != null) {
+      final file = await _drive.downloadToCache(audioId, '$audioId.m4a');
+      idea.audioUrl = file.path;
+    }
+  }
+
+  @override
+  Future<void> deleteIdeaMedia(Idea idea) async {
+    if (idea.imagePath != null) await _drive.deleteFile(idea.imagePath!);
+    if (idea.audioPath != null) await _drive.deleteFile(idea.audioPath!);
   }
 }

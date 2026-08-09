@@ -86,8 +86,9 @@ class IdeaVault extends ChangeNotifier {
   Future<void> deleteIdea(String id) async {
     final index = _ideas.indexWhere((i) => i.id == id);
     if (index < 0) return;
+    final idea = _ideas[index];
     await store.deleteIdea(id);
-    await media.deleteIdeaMedia(id);
+    await media.deleteIdeaMedia(idea);
     await reminders.cancelRevisit(id);
     _ideas.removeAt(index);
     notifyListeners();

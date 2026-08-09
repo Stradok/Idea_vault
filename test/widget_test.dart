@@ -63,7 +63,7 @@ class _FakeMedia extends MediaService {
   Future<void> resolveMediaUrls(Idea idea) async {}
 
   @override
-  Future<void> deleteIdeaMedia(String ideaId) async {}
+  Future<void> deleteIdeaMedia(Idea idea) async {}
 }
 
 void main() {

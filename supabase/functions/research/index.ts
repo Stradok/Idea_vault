@@ -8,11 +8,11 @@ import { tokenize } from "../_shared/rank.ts";
 //     about the user's idea.
 //  2. Gemini writes a rich, structured research report grounded
 //     in that context (retrieval-augmented generation).
-// The report is cached in research_reports for the idea.
+// Stateless: the client caches the report itself (inside the idea's
+// Google Drive file) — this function does not persist anything.
 // ============================================================
 
 interface ResearchBody {
-  ideaId: string;
   title: string;
   notes?: string | null;
 }
@@ -133,18 +133,9 @@ Deno.serve(async (req) => {
     if (authError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
 
     const body = (await req.json()) as ResearchBody;
-    if (!body?.ideaId || !body?.title) {
-      return jsonResponse({ error: "ideaId and title are required" }, 400);
+    if (!body?.title) {
+      return jsonResponse({ error: "title is required" }, 400);
     }
-
-    // Confirm the user owns the idea before generating/caching.
-    const { data: idea, error: ideaError } = await supabase
-      .from("ideas")
-      .select("id")
-      .eq("id", body.ideaId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (ideaError || !idea) return jsonResponse({ error: "Idea not found" }, 404);
 
     const query = buildQuery(body.title, body.notes);
     const { answer, citations } = await perplexityResearch(query);
@@ -153,10 +144,6 @@ Deno.serve(async (req) => {
       `Perplexity research:\n${answer}\n\nSources:\n${(citations ?? []).join("\n")}`;
     const report = await geminiReport(body.title, context);
     if (!Array.isArray(report.sources)) report.sources = citations ?? [];
-
-    await supabase
-      .from("research_reports")
-      .upsert({ idea_id: body.ideaId, payload: report, created_at: new Date().toISOString() });
 
     return jsonResponse({ report });
   } catch (e) {

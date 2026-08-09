@@ -1,61 +1,68 @@
 # IdeaVault
 
-Capture business ideas, research them with live data, follow relevant news, and get matched sponsors — all synced to your account.
+Capture business ideas, research them with live data, follow relevant news, and get AI-matched tools — all saved to your own Google Drive.
 
 ## Stack
 
 - **App**: Flutter (`lib/`)
-- **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions)
+- **Identity**: Google Sign-In (native), bridged into a Supabase session so edge functions can verify the caller
+- **Storage**: the user's own Google Drive (`drive.file` scope) — every idea is a JSON file, photos/voice notes are separate files, all inside an `IdeaVault` folder the app creates
+- **Backend**: Supabase Edge Functions only (no database/storage for idea data) — stateless proxies that hide the Perplexity/Gemini API keys
 - **Research**: Perplexity (live search) → Gemini (structured report)
 - **News**: NewsAPI, GNews, Hacker News, Reddit + BM25 reranking
-- **Ads**: curated `sponsors` table (AdMob planned)
+- **"For you" tab**: Perplexity → Gemini matches real tools/services to the specific idea, falling back to a curated `sponsors` table if the AI call fails
+
+Why Drive instead of a database: the user's ideas, photos, and voice notes live in *their* Google Drive, not on our servers — we never see or store that content ourselves.
 
 ## Setup
 
 ### 1. App configuration
 
-Copy `.env.example` to `.env` and fill in your Supabase project values:
+Copy `.env.example` to `.env` and fill in your Supabase project values plus the Google Web OAuth client ID (see step 3 below):
 
 ```
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=sb_publishable_...
+GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
 ```
 
-### 2. Supabase database
+### 2. Supabase edge functions
 
-Push the migration (tables, RLS, storage bucket, seed sponsors):
+No database migration needed for idea data anymore — Supabase only hosts the stateless functions and the `profiles`/`sponsors` tables (see `supabase/migrations/0001_init.sql`).
 
 ```
 supabase link --project-ref <project-ref>
 supabase db push
-```
-
-### 3. Edge functions
-
-```
-supabase functions deploy research news delete-account
+supabase functions deploy research news affiliate-matches delete-account
 supabase secrets set PERPLEXITY_API_KEY=... GEMINI_API_KEY=...
 supabase secrets set NEWSAPI_KEY=... GNEWS_KEY=...   # optional; HN + Reddit work without keys
 ```
 
-The `news` function works without any keys (Hacker News + Reddit are free APIs).
-The `research` function needs `PERPLEXITY_API_KEY` and `GEMINI_API_KEY`.
-The `delete-account` function (Settings → Delete account) needs no extra
-secrets — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`
-are auto-injected into every edge function by Supabase.
+- `news` works without any keys (Hacker News + Reddit are free APIs).
+- `research` and `affiliate-matches` need `PERPLEXITY_API_KEY` and `GEMINI_API_KEY`.
+- `delete-account` needs no extra secrets — `SUPABASE_SERVICE_ROLE_KEY` is auto-injected.
 
-### 4. Google sign-in (optional)
+### 3. Google Cloud Console (sign-in + Drive access)
 
-1. Google Cloud Console → APIs & Services → OAuth consent screen → add test users.
-2. Credentials → Create OAuth client ID → **Web application** (Supabase calls Google server-side, not a mobile/desktop client type).
-3. Supabase dashboard → Authentication → Providers → Google → enable + paste Client ID/Secret.
-4. Supabase dashboard → Authentication → URL Configuration → **Redirect URLs** → add:
-   ```
-   io.supabase.ideavault://login-callback
-   ```
-   This matches the custom URL scheme registered in `AndroidManifest.xml` and iOS `Info.plist`, which is how the OAuth browser flow hands control back to the app on mobile.
+1. **APIs & Services → Library** → enable the **Google Drive API**.
+2. **APIs & Services → OAuth consent screen** → add scope
+   `.../auth/drive.file`. Stay in **Testing** mode and add your control
+   group's emails as test users — this works immediately, no need to wait
+   for Google's verification (that's only required to open the app to the
+   general public later).
+3. **APIs & Services → Credentials → Create OAuth client ID**:
+   - **Web application** — this is your `GOOGLE_WEB_CLIENT_ID` (used as
+     `serverClientId` for `google_sign_in`, and must also be set as the
+     Client ID in Supabase's Google provider below).
+   - **Android** — package `com.ideavault.idea_vault` + your release
+     keystore's SHA-1 (`keytool -list -v -keystore android/app/upload-keystore.jks`).
+   - **iOS** — bundle ID (needed once iOS work resumes).
+4. Supabase dashboard → **Authentication → Providers → Google** → enable,
+   paste the **Web** client ID/secret. (No redirect URL setup needed —
+   sign-in is native `google_sign_in`, not a browser redirect; the app calls
+   `signInWithIdToken` directly.)
 
-### 5. Run
+### 4. Run
 
 ```
 flutter pub get
@@ -65,15 +72,18 @@ flutter run
 ## Architecture
 
 - `lib/state/idea_vault.dart` — app state (ChangeNotifier): load/add/delete/favorite/reminders.
-- `lib/services/` — Supabase-backed services: ideas, media uploads, research, news, sponsors.
-- `lib/screens/` — auth, home, add-idea, idea-detail (Research / News / For-you tabs).
-- `supabase/migrations/` — schema + RLS + seeds.
-- `supabase/functions/` — `research` (Perplexity→Gemini RAG), `news` (multi-source + BM25).
+- `lib/services/auth_service.dart` — bridges native Google Sign-In (identity + Drive access) into a Supabase session.
+- `lib/services/drive/drive_client.dart` — thin Drive v3 API wrapper: the `IdeaVault` folder, JSON file CRUD, quota check, local media cache.
+- `lib/services/idea_store.dart` — `DriveIdeaStore` (ideas as Drive JSON files) also implements `IdeaCache` so research/affiliate results cache inside the idea's own file.
+- `lib/services/media_service.dart` — `DriveMediaService`: photos/voice notes as Drive files, downloaded once and cached locally for display (Drive has no signed-URL equivalent for private files).
+- `lib/services/research_service.dart`, `affiliate_service.dart` — call the stateless edge functions, cache via `IdeaCache`.
+- `lib/screens/` — auth (Google-only), home, add-idea, idea-detail (Research / News / For-you tabs), settings (legal docs, delete account).
+- `supabase/functions/` — `research` (Perplexity→Gemini RAG), `news` (multi-source + BM25), `affiliate-matches` (Perplexity→Gemini tool matching), `delete-account`.
 - `supabase/functions/_shared/` — CORS + BM25 rank helpers.
 
 ## Security
 
-- All `ideas`/`research_reports` are private per user (RLS enforced by `auth.uid()`).
-- Media files live in a private bucket, one folder per user, served via short-lived signed URLs.
-- API keys live only in edge-function secrets — never in the app.
-- `.env` is gitignored; the anon/publishable key is the only key in the app.
+- Idea content (title, notes, photos, voice notes, cached AI results) lives entirely in the signed-in user's own Google Drive, in a folder only this app can access (`drive.file` scope — least privilege, not full Drive access).
+- The Supabase session (from `signInWithIdToken`) is only used to authenticate calls to the stateless edge functions — no idea data passes through or is stored in Supabase.
+- API keys (Perplexity, Gemini, NewsAPI, GNews) live only in edge-function secrets — never in the app.
+- `.env` is gitignored; the anon/publishable key and Google Web client ID are the only identifiers in the app — no secrets.

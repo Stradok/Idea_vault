@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/auth_service.dart';
 import '../state/idea_vault.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -49,15 +50,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _deleteAccount() async {
     setState(() => _deleting = true);
+    final auth = context.read<AuthService>();
     try {
+      // Order matters: clean up Drive and revoke Google access *first*,
+      // while we still hold valid credentials to do so — deleting the
+      // Supabase auth user first would leave the app without a session to
+      // authenticate the Drive cleanup calls with.
+      await auth.drive.deleteAppFolder();
+
       final res =
           await Supabase.instance.client.functions.invoke('delete-account');
       final data = res.data as Map<String, dynamic>?;
       if (data != null && data['error'] != null) {
         throw Exception(data['error']);
       }
+
       if (!mounted) return;
       context.read<IdeaVault>().clear();
+      await auth.disconnect();
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
       if (!mounted) return;

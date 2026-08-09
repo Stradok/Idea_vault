@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+
+import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -9,73 +11,19 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isSignUp = false;
   bool _loading = false;
   String? _error;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    if (email.isEmpty || password.length < 6) {
-      setState(() => _error =
-          'Enter a valid email and a password of at least 6 characters.');
-      return;
-    }
+  Future<void> _signIn() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final auth = Supabase.instance.client.auth;
-      if (_isSignUp) {
-        await auth.signUp(
-          email: email,
-          password: password,
-          emailRedirectTo: null,
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Account created! Check your email to confirm, then sign in.'),
-          ),
-        );
-        setState(() => _isSignUp = false);
-      } else {
-        await auth.signInWithPassword(email: email, password: password);
-      }
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
+      await context.read<AuthService>().signInWithGoogle();
     } catch (e) {
-      setState(() => _error = 'Something went wrong. Check your connection.');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _googleSignIn() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.supabase.ideavault://login-callback',
-      );
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (e) {
-      setState(() => _error = 'Google sign-in failed on this device.');
+      setState(() =>
+          _error = 'Google sign-in failed. Check your connection and try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -108,61 +56,38 @@ class _AuthScreenState extends State<AuthScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey),
                   ),
-                  const SizedBox(height: 32),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.mail_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _submit(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your ideas, photos, and voice notes are saved to your '
+                    'own Google Drive — never our servers.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   if (_error != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 20),
                     Text(
                       _error!,
+                      textAlign: TextAlign.center,
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
+                  const SizedBox(height: 28),
+                  FilledButton.icon(
+                    onPressed: _loading ? null : _signIn,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.g_mobiledata, size: 26),
+                    label: Text(_loading ? 'Signing in...' : 'Continue with Google'),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text(_isSignUp ? 'Create account' : 'Sign in'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _loading ? null : _googleSignIn,
-                    icon: const Icon(Icons.g_mobiledata, size: 26),
-                    label: const Text('Continue with Google'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _isSignUp = !_isSignUp;
-                      _error = null;
-                    }),
-                    child: Text(_isSignUp
-                        ? 'Already have an account? Sign in'
-                        : 'New here? Create an account'),
                   ),
                 ],
               ),

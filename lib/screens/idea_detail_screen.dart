@@ -1,10 +1,12 @@
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../models/ad_item.dart';
+import '../models/affiliate_match.dart';
 import '../models/idea.dart';
 import '../models/news_item.dart';
 import '../models/research.dart';
@@ -231,8 +233,10 @@ class _ResearchTabState extends State<_ResearchTab> {
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  widget.idea.imageUrl!,
+                // imageUrl is a local file path — media is cached from Drive
+                // on load, not served from a network URL. See DriveMediaService.
+                child: Image.file(
+                  File(widget.idea.imageUrl!),
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
@@ -670,44 +674,49 @@ class _AdsTab extends StatefulWidget {
 }
 
 class _AdsTabState extends State<_AdsTab> {
-  late Future<List<AdItem>> _future;
+  late Future<List<AffiliateMatch>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = context.read<Backend>().sponsors.adsFor(widget.category);
+    _future = context.read<Backend>().affiliates.matchesFor(
+          ideaId: widget.idea.id,
+          title: widget.idea.title,
+          notes: widget.idea.notes,
+          category: widget.category,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<AdItem>>(
+    return FutureBuilder<List<AffiliateMatch>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        final ads = snapshot.data ?? const <AdItem>[];
+        final matches = snapshot.data ?? const <AffiliateMatch>[];
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'Sponsored · matched to your idea about '
+              'Tools matched to your idea about '
               '${widget.category.label.toLowerCase()}',
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 12),
-            if (ads.isEmpty)
+            if (matches.isEmpty)
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    'No sponsors available for this idea yet.',
+                    'No matches found for this idea yet.',
                     style: TextStyle(color: Colors.grey),
                   ),
                 ),
               ),
-            for (final ad in ads) ...[
-              _AdBanner(ad: ad),
+            for (final match in matches) ...[
+              _ToolBanner(match: match),
               const SizedBox(height: 12),
             ],
             const SizedBox(height: 12),
@@ -715,8 +724,8 @@ class _AdsTabState extends State<_AdsTab> {
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                  'Ads help you find suppliers, partners and tools for your '
-                  'idea. They are matched to the topic of each idea you capture.',
+                  'These are AI-matched suggestions based on the topic of your '
+                  'idea, not paid placements.',
                   style: TextStyle(color: Colors.grey, height: 1.4, fontSize: 12),
                 ),
               ),
@@ -728,18 +737,19 @@ class _AdsTabState extends State<_AdsTab> {
   }
 }
 
-class _AdBanner extends StatelessWidget {
-  final AdItem ad;
-  const _AdBanner({required this.ad});
+class _ToolBanner extends StatelessWidget {
+  final AffiliateMatch match;
+  const _ToolBanner({required this.match});
 
   @override
   Widget build(BuildContext context) {
+    final color = Colors.primaries[match.name.hashCode.abs() % Colors.primaries.length];
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => _openUrl(ad.link),
+        onTap: () => _openUrl(match.url),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -754,15 +764,11 @@ class _AdBanner extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      ad.color,
-                      ad.color.withValues(alpha: 0.7),
-                    ],
+                    colors: [color, color.withValues(alpha: 0.7)],
                   ),
                 ),
-                child: Center(
-                  child: Text(ad.icon,
-                      style: const TextStyle(fontSize: 34)),
+                child: const Center(
+                  child: Icon(Icons.build_outlined, color: Colors.white, size: 30),
                 ),
               ),
               Expanded(
@@ -773,14 +779,14 @@ class _AdBanner extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${ad.advertiser}  ·  Sponsored',
+                        '${match.name}  ·  ${match.category}',
                         style: const TextStyle(
                             fontSize: 11,
                             color: Colors.grey,
                             fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 4),
-                      Text(ad.tagline,
+                      Text(match.description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -790,12 +796,12 @@ class _AdBanner extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: ad.color,
+                          color: color,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          ad.cta,
-                          style: const TextStyle(
+                        child: const Text(
+                          'Visit site',
+                          style: TextStyle(
                               color: Colors.white, fontSize: 12),
                         ),
                       ),
@@ -852,7 +858,9 @@ class _AudioNoteCardState extends State<_AudioNoteCard> {
                     await _player.pause();
                   } else {
                     await _player.stop();
-                    await _player.play(UrlSource(widget.url));
+                    // widget.url is a local cached file path (see
+                    // DriveMediaService), not a network URL.
+                    await _player.play(DeviceFileSource(widget.url));
                   }
                 },
                 icon: Icon(playing

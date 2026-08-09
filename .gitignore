@@ -46,3 +46,7 @@ app.*.map.json
 
 # Environment
 .env
+
+# Google OAuth client secrets — never commit these.
+client_secret_*.json
+OAuth_Client_details.md

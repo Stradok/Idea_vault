@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/idea.dart';
+import '../services/auth_service.dart';
 import '../state/idea_vault.dart';
 import 'add_idea_screen.dart';
 import 'idea_detail_screen.dart';
@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _signOut() async {
     final vault = context.read<IdeaVault>();
-    await Supabase.instance.client.auth.signOut();
+    await context.read<AuthService>().signOut();
     vault.clear();
   }
 

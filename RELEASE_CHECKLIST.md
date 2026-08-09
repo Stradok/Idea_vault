@@ -4,16 +4,36 @@ Everything below is what's left between "code is ready" and "live on the Play
 Store." Code-level items done during the production-readiness pass are marked
 done; everything else needs your account/action.
 
+**Current plan**: ship the signed APK directly to a control group first
+(sideloaded, no Play Console needed yet), then move to Play Store once that's
+validated. Sections 5/6 below (store listing, Play Console setup) apply once
+you're ready for that step — not blocking the control-group test.
+
 ## 0. Security — do this first
 
-- [ ] **Rotate the Supabase service-role key and DB password.** `plan.md` notes
-      these were pasted into a chat once. Go to Supabase dashboard → Project
-      Settings → API → "Reset service_role key", and Settings → Database →
-      "Reset database password". After rotating, re-run
-      `supabase secrets set` for any function that used the old value (the
-      `delete-account` function added in this pass uses the auto-injected
-      `SUPABASE_SERVICE_ROLE_KEY`, so it'll pick up the new one automatically —
-      just redeploy: `supabase functions deploy delete-account`).
+- [x] **Rotate the Supabase service-role key and DB password.** Done —
+      new keys issued, `.env`'s `SUPABASE_ANON_KEY` updated, and
+      `research`/`news`/`delete-account` redeployed to pick up the new
+      auto-injected `SUPABASE_SERVICE_ROLE_KEY`.
+
+## 0.5. Architecture pivot (2026-08-09): Google-only auth + Drive storage
+
+The app was rebuilt to sign in with Google only and store all idea data
+(title, notes, photos, voice notes, cached research/affiliate results) in the
+user's own Google Drive instead of Supabase Postgres/Storage. See
+`README.md` for the new architecture and the Google Cloud Console setup this
+requires. Concretely, still needed before this is testable end-to-end:
+
+- [ ] Google Cloud Console: enable Drive API, add `drive.file` scope to the
+      OAuth consent screen (Testing mode + test users covers the control
+      group — no verification wait), create Web/Android OAuth client IDs.
+- [ ] Set `GOOGLE_WEB_CLIENT_ID` in `.env` (currently blank — the app will
+      show the "needs setup" screen until this is filled in).
+- [ ] Confirm Supabase's Google provider Client ID matches the new Web OAuth
+      client.
+- [ ] **Destructive, needs your explicit go-ahead before running**: a
+      migration to drop the now-unused `ideas`/`research_reports` tables and
+      the `idea-media` storage bucket (data lives in Drive now). Not run yet.
 
 ## 1. Code-level (done in this pass)
 
@@ -21,13 +41,12 @@ done; everything else needs your account/action.
 - [x] Fixed a startup crash: `.env` wasn't declared as a Flutter asset, so
       `dotenv.load` would throw before `runApp` on any real build. Now
       declared as an asset and wrapped in try/catch as defense in depth.
-- [x] Google OAuth deep-link redirect (`io.supabase.ideavault://login-callback`)
-      wired into `AndroidManifest.xml`, iOS `Info.plist`, and the sign-in call.
-      **You still need to** add that URL to Supabase → Authentication → URL
-      Configuration → Redirect URLs.
-- [x] In-app account deletion (Settings → Delete account), backed by the new
-      `delete-account` edge function — required by Play Store policy for any
-      app with account creation.
+- [x] ~~Google OAuth deep-link redirect~~ — superseded by the native
+      Google Sign-In + Drive pivot (§0.5); no longer used.
+- [x] In-app account deletion (Settings → Delete account): deletes the Drive
+      `IdeaVault` folder and revokes Google access first, then calls the
+      `delete-account` edge function to remove the Supabase auth user —
+      required by Play Store policy for any app with account creation.
 - [x] `PRIVACY.md` / `TERMS.md` drafted, linked in-app from Settings.
 - [x] Android release signing wired to `android/key.properties` (generated —
       see §2), `minifyEnabled`/`shrinkResources` turned on, `allowBackup=false`.

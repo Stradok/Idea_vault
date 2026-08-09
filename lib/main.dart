@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/env.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/auth_service.dart';
 import 'services/backend.dart';
 import 'services/reminder_service.dart';
 import 'state/idea_vault.dart';
@@ -121,6 +122,7 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
+  late final AuthService _authService;
   late final Backend _backend;
   late final ReminderService _reminders;
   late final IdeaVault _vault;
@@ -131,8 +133,9 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     final client = Supabase.instance.client;
+    _authService = AuthService();
     _reminders = ReminderService();
-    _backend = Backend(client);
+    _backend = Backend(client, _authService.drive);
     _vault = IdeaVault(
       store: _backend.ideas,
       media: _backend.media,
@@ -146,6 +149,10 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _handleInitialSession(SupabaseClient client) async {
     final session = client.auth.currentSession;
     if (session != null) {
+      // Restores the Drive-scoped Google session (Supabase's own session is
+      // already restored independently by supabase_flutter) so DriveClient
+      // has a signed-in GoogleSignIn.currentUser before we load ideas.
+      await _authService.warmUpGoogleSession();
       await _activateUser(session.user.id);
     }
     setState(() => _ready = true);
@@ -166,6 +173,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider.value(value: _authService),
         Provider.value(value: _backend),
         Provider.value(value: _reminders),
         ChangeNotifierProvider.value(value: _vault),
