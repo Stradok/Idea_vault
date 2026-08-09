@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IdeaVault — Test Build</title>
+<style>
+  :root {
+    --bg: #f8f9fc;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --text: #111827;
+    --muted: #6b7280;
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --ok: #059669;
+    --warn: #b45309;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 64px;
+  }
+  main { width: 100%; max-width: 480px; }
+  .emoji { font-size: 48px; text-align: center; margin-bottom: 4px; }
+  h1 { text-align: center; font-size: 26px; margin: 0 0 4px; }
+  .tagline { text-align: center; color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .download-btn {
+    display: block;
+    text-align: center;
+    background: var(--primary);
+    color: white;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    transition: background 0.15s;
+  }
+  .download-btn:active { background: var(--primary-dark); }
+  .version { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  ol { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; color: var(--text); }
+  ol li { margin-bottom: 6px; }
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .status-row:last-child { border-bottom: none; }
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+  .badge.ok { background: #d1fae5; color: var(--ok); }
+  .badge.warn { background: #fef3c7; color: var(--warn); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+  a.contact { color: var(--primary); text-decoration: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="emoji">💡</div>
+  <h1>IdeaVault</h1>
+  <p class="tagline">Capture business ideas, research them, and grow them — saved to your own Google Drive.</p>
+
+  <div class="card">
+    <a class="download-btn" href="https://github.com/Stradok/Idea_vault/releases/latest/download/IdeaVault.apk">
+      Download for Android
+    </a>
+    <p class="version">This link always points to the latest test build.</p>
+  </div>
+
+  <div class="card">
+    <h2>How to install</h2>
+    <ol>
+      <li>Tap the download button above.</li>
+      <li>Open the downloaded file. If Android blocks it, tap <strong>Settings</strong> in the popup and allow installs from this app (one-time step).</li>
+      <li>Tap <strong>Install</strong>, then open IdeaVault and sign in with Google.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Current status</h2>
+    <div class="status-row"><span>Sign in with Google</span><span class="badge ok">Working</span></div>
+    <div class="status-row"><span>Capture ideas (text/photo/voice)</span><span class="badge ok">Working</span></div>
+    <div class="status-row"><span>Saved to your Google Drive</span><span class="badge ok">Working</span></div>
+    <div class="status-row"><span>Research tab</span><span class="badge warn">Not yet enabled</span></div>
+    <div class="status-row"><span>iOS</span><span class="badge warn">Not available yet</span></div>
+  </div>
+
+  <footer>
+    Found something broken? Message <a class="contact" href="mailto:khawajaamman@gmail.com">khawajaamman@gmail.com</a> with what you tapped and what happened.
+  </footer>
+</main>
+</body>
+</html>

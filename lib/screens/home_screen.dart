@@ -270,7 +270,16 @@ class _IdeaCard extends StatelessWidget {
                               : Colors.grey.shade400,
                           size: 20,
                         ),
-                        onPressed: () => vault.toggleFavorite(idea.id),
+                        onPressed: () =>
+                            vault.toggleFavorite(idea.id).catchError((e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content:
+                                      Text('Could not update favorite: $e')),
+                            );
+                          }
+                        }),
                       ),
                     ],
                   ),

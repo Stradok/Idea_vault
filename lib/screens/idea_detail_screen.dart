@@ -39,7 +39,13 @@ class IdeaDetailScreen extends StatelessWidget {
                 idea.isFavorite ? Icons.star : Icons.star_border,
                 color: idea.isFavorite ? Colors.amber.shade700 : null,
               ),
-              onPressed: () => vault.toggleFavorite(idea.id),
+              onPressed: () => vault.toggleFavorite(idea.id).catchError((e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not update favorite: $e')),
+                  );
+                }
+              }),
             ),
             PopupMenuButton<String>(
               onSelected: (v) async {
@@ -66,8 +72,16 @@ class IdeaDetailScreen extends StatelessWidget {
                     ),
                   );
                   if (confirmed == true && context.mounted) {
-                    await vault.deleteIdea(idea.id);
-                    if (context.mounted) Navigator.pop(context);
+                    try {
+                      await vault.deleteIdea(idea.id);
+                      if (context.mounted) Navigator.pop(context);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not delete idea: $e')),
+                        );
+                      }
+                    }
                   }
                 }
               },

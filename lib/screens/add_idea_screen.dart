@@ -31,6 +31,7 @@ class _AddIdeaScreenState extends State<AddIdeaScreen> {
   String? _localImagePath;
   String? _localAudioPath;
   bool _isRecording = false;
+  bool _saving = false;
   int _recordSeconds = 0;
   Timer? _timer;
 
@@ -98,18 +99,27 @@ class _AddIdeaScreenState extends State<AddIdeaScreen> {
 
   Future<void> _save() async {
     final vault = context.read<IdeaVault>();
-    await vault.addIdea(
-      title: _titleController.text.trim().isEmpty
-          ? (_localAudioPath != null ? 'Voice note idea' : 'New idea')
-          : _titleController.text.trim(),
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
-      localImagePath: _localImagePath,
-      localAudioPath: _localAudioPath,
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop();
+    setState(() => _saving = true);
+    try {
+      await vault.addIdea(
+        title: _titleController.text.trim().isEmpty
+            ? (_localAudioPath != null ? 'Voice note idea' : 'New idea')
+            : _titleController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        localImagePath: _localImagePath,
+        localAudioPath: _localAudioPath,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save idea: $e')),
+      );
+    }
   }
 
   @override
@@ -119,9 +129,15 @@ class _AddIdeaScreenState extends State<AddIdeaScreen> {
         title: const Text('Capture idea'),
         actions: [
           TextButton(
-            onPressed: _canSave ? _save : null,
-            child: const Text('Save',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            onPressed: _canSave && !_saving ? _save : null,
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Save',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           const SizedBox(width: 4),
         ],

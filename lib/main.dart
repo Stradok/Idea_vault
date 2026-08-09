@@ -149,18 +149,32 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _handleInitialSession(SupabaseClient client) async {
     final session = client.auth.currentSession;
     if (session != null) {
-      // Restores the Drive-scoped Google session (Supabase's own session is
-      // already restored independently by supabase_flutter) so DriveClient
-      // has a signed-in GoogleSignIn.currentUser before we load ideas.
-      await _authService.warmUpGoogleSession();
-      await _activateUser(session.user.id);
+      try {
+        // Restores the Drive-scoped Google session (Supabase's own session
+        // is already restored independently by supabase_flutter) so
+        // DriveClient has a signed-in GoogleSignIn.currentUser before we
+        // load ideas.
+        await _authService.warmUpGoogleSession();
+        await _activateUser(session.user.id);
+      } catch (_) {
+        // Fall through to showing the (possibly empty) home screen rather
+        // than getting stuck on the loading spinner forever.
+      }
     }
-    setState(() => _ready = true);
+    if (mounted) setState(() => _ready = true);
   }
 
   Future<void> _activateUser(String userId) async {
     _vault.setUserId(userId);
-    await _vault.load();
+    try {
+      await _vault.load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text('Could not load your ideas: $e')),
+        );
+      }
+    }
   }
 
   @override
