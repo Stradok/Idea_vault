@@ -606,7 +606,7 @@ export function LiquidEther({
         this.props = props || {};
         this.uniforms = this.props.material?.uniforms;
       }
-      init() {
+      init(_simProps?: any) {
         this.scene = new THREE.Scene();
         this.camera = new THREE.Camera();
         if (this.uniforms) {
@@ -616,7 +616,7 @@ export function LiquidEther({
           this.scene.add(this.plane);
         }
       }
-      update() {
+      update(_args?: any): any {
         if (!Common.renderer || !this.scene || !this.camera) return;
         Common.renderer.setRenderTarget(this.props.output || null);
         Common.renderer.render(this.scene, this.camera);
