@@ -22,4 +22,12 @@ class NewsItem {
             DateTime.now(),
         url: json['url']?.toString() ?? '',
       );
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'source': source,
+        'snippet': snippet,
+        'publishedAt': publishedAt.toIso8601String(),
+        'url': url,
+      };
 }

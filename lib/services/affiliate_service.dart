@@ -1,6 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../models/affiliate_match.dart';
+import 'ai_queue_service.dart';
 import 'idea_category.dart';
 import 'idea_store.dart';
 import 'sponsor_service.dart';
@@ -19,12 +18,12 @@ abstract class AffiliateService {
 /// to the curated [SponsorService] list if the AI call fails or the model
 /// can't find real matches, so the tab is never empty.
 class DriveAffiliateService implements AffiliateService {
-  final SupabaseClient _client;
   final IdeaCache _cache;
+  final AiQueueService _queue;
   final SponsorService _fallback;
   static const _cacheKey = 'affiliates';
 
-  DriveAffiliateService(this._client, this._cache, this._fallback);
+  DriveAffiliateService(this._queue, this._cache, this._fallback);
 
   @override
   Future<List<AffiliateMatch>> matchesFor({
@@ -37,12 +36,14 @@ class DriveAffiliateService implements AffiliateService {
     if (cached != null && cached.isNotEmpty) return cached;
 
     try {
-      final res = await _client.functions.invoke(
-        'affiliate-matches',
-        body: {'title': title, 'notes': notes},
+      final result = await _queue.enqueueAndWait(
+        kind: 'affiliate',
+        title: title,
+        notes: notes,
       );
-      final data = (res.data as Map<String, dynamic>?) ?? {};
-      final list = data['matches'] as List<dynamic>? ?? const [];
+      // process-ai-queue stores runAffiliateMatch()'s return value (a raw
+      // array) directly in the queue row's `result` column.
+      final list = (result as List?) ?? const [];
       final matches = list
           .whereType<Map<String, dynamic>>()
           .map(AffiliateMatch.fromJson)

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/research.dart';
+import 'ai_queue_service.dart';
 import 'idea_store.dart';
 
 abstract class AiResearchService {
@@ -52,15 +53,17 @@ class SupabaseResearchService implements AiResearchService {
   }
 }
 
-/// Same Perplexity->Gemini edge function as [SupabaseResearchService], but
+/// Same Google Search->Gemini pipeline as [SupabaseResearchService], but
 /// caches the result inside the idea's own Drive file (via [IdeaCache])
-/// instead of a `research_reports` table.
+/// instead of a `research_reports` table, and goes through [AiQueueService]
+/// so the shared Google Search free-tier quota is spent one request at a
+/// time instead of however many users tap "Research" at once.
 class DriveResearchService implements AiResearchService {
-  final SupabaseClient _client;
   final IdeaCache _cache;
+  final AiQueueService _queue;
   static const _cacheKey = 'research';
 
-  DriveResearchService(this._client, this._cache);
+  DriveResearchService(this._queue, this._cache);
 
   @override
   Future<ResearchReport> research({
@@ -71,12 +74,14 @@ class DriveResearchService implements AiResearchService {
     final cached = await _cachedReport(ideaId);
     if (cached != null) return cached;
 
-    final res = await _client.functions.invoke(
-      'research',
-      body: {'title': title, 'notes': notes},
+    final result = await _queue.enqueueAndWait(
+      kind: 'research',
+      title: title,
+      notes: notes,
     );
-    final data = (res.data as Map<String, dynamic>?) ?? {};
-    final reportJson = data['report'] as Map<String, dynamic>? ?? {};
+    // process-ai-queue stores runResearch()'s return value (the report
+    // object itself) directly in the queue row's `result` column.
+    final reportJson = (result as Map?)?.cast<String, dynamic>() ?? {};
     final report = ResearchReport.fromJson(reportJson);
     await _cache.writeCache(ideaId, _cacheKey, reportJson);
     return report;

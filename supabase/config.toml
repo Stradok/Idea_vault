@@ -371,6 +371,13 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# process-ai-queue is invoked by pg_cron (see migration 0004), not by
+# end users — it authenticates callers with its own x-cron-secret header
+# check instead of a per-user Supabase JWT, so skip the platform's JWT
+# gateway check specifically for this function.
+[functions.process-ai-queue]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

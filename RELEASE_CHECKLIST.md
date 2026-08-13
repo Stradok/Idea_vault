@@ -84,12 +84,20 @@ mobile releases — treat it like a production credential.
 |---|---|---|
 | [Google Play Console](https://play.google.com/console) | $25 one-time | Publishing the Android app |
 | [Apple Developer Program](https://developer.apple.com/programs/) | $99/year | iOS — deferred per your "Android first" choice |
-| Perplexity API key | Pay-as-you-go | Powers the Research tab (`PERPLEXITY_API_KEY`) |
+| Google Custom Search JSON API key + Programmable Search Engine | Free (100 queries/day) | Powers Research/News/For-you (`GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`) |
 | Google AI Studio (Gemini) API key | Free tier available | Powers the Research tab (`GEMINI_API_KEY`) |
 
-Without the Perplexity/Gemini keys, tapping "Research" on an idea will fail —
-decide whether to get the keys before submitting, or ship v1 with News +
-Capture only and add Research in an update.
+Without the Google Search/Gemini keys, tapping "Research" on an idea will
+fail — decide whether to get the keys before submitting, or ship v1 with
+News + Capture only and add Research in an update.
+
+The 100/day Google Search quota is shared across every user of the app, not
+per-user. Research/News/For-you requests are queued (`ai_request_queue`,
+processed by `process-ai-queue` on a 2-minute `pg_cron` schedule) instead of
+called instantly, so the quota is spent deliberately rather than however
+many people happen to open a tab at once. Fine for a small control group;
+revisit (per-user BYOK, a paid tier, or caching more aggressively) before a
+public launch with real traffic.
 
 ## 4. Hosting the legal docs
 

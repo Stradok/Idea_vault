@@ -117,6 +117,34 @@ Future<void> _openUrl(String url) async {
   await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
+/// Loading state shared by the News and For-you tabs: results come from a
+/// shared queue (one AI request processed at a time), not instantly.
+class _QueuedLoadingView extends StatelessWidget {
+  final String label;
+  const _QueuedLoadingView({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(strokeWidth: 2),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey, height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ResearchTab extends StatefulWidget {
   final Idea idea;
   final IdeaCategory category;
@@ -169,7 +197,9 @@ class _ResearchTabState extends State<_ResearchTab> {
                       SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                            'Researching your idea with live sources...'),
+                            "You're in the queue — Research is fetched one "
+                            'idea at a time, so this can take a few minutes '
+                            'if others are ahead of you.'),
                       ),
                     ],
                   ),
@@ -563,6 +593,7 @@ class _NewsTabState extends State<_NewsTab> {
     final backend = context.read<Backend>();
     return backend.news.fetchFor(
       widget.category,
+      ideaId: widget.idea.id,
       title: widget.idea.title,
       notes: widget.idea.notes,
     );
@@ -574,7 +605,11 @@ class _NewsTabState extends State<_NewsTab> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const _QueuedLoadingView(
+            label: "You're in the queue — News is fetched one idea at a "
+                'time, so this can take a few minutes if others are ahead '
+                'of you.',
+          );
         }
         if (snapshot.hasError) {
           return Center(
@@ -714,7 +749,11 @@ class _AdsTabState extends State<_AdsTab> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const _QueuedLoadingView(
+            label: "You're in the queue — matches are fetched one idea at "
+                'a time, so this can take a few minutes if others are '
+                'ahead of you.',
+          );
         }
         final matches = snapshot.data ?? const <AffiliateMatch>[];
         return ListView(

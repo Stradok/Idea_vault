@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/idea.dart';
 import '../services/auth_service.dart';
@@ -17,7 +18,50 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _queueIntroSeenKey = 'queue_intro_seen_v1';
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowQueueIntro());
+  }
+
+  Future<void> _maybeShowQueueIntro() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_queueIntroSeenKey) == true) return;
+    await prefs.setBool(_queueIntroSeenKey, true);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Aoa! Amman here 👋'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Quick heads up before you dive in: this app is running on my '
+            'personal savings and pure vibes, not some VC-funded server '
+            "farm — so there's no big API budget behind it (yet 😅).\n\n"
+            "Because of that, Research & News aren't instant. Add your "
+            'idea, and it joins a queue — I process everyone\'s ideas one '
+            'by one, first come first served. Less "Silicon Valley," more '
+            '"bakery counter, please take a number." 🎟️\n\n'
+            "You'll get your results as soon as your turn comes up. If "
+            "you're testing at 3am and you're the only one awake, "
+            'congrats, you\'re VIP tonight.\n\n'
+            'Thanks for being my guinea pigs testers — appreciate you 🐹❤️\n\n'
+            '— Amman',
+            style: TextStyle(height: 1.4),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Got it, let's go"),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _signOut() async {
     final vault = context.read<IdeaVault>();

@@ -6,9 +6,10 @@ An app for entrepreneurs to capture business ideas fast and get them from "thoug
 ## Decisions (confirmed)
 - **Identity**: Google Sign-In only (no email/password) — bridged into a Supabase session so edge functions can verify callers.
 - **Storage**: the user's own Google Drive (`drive.file` scope) — ideas, photos, and voice notes are never stored on our servers. Supabase now only hosts stateless edge functions + `profiles`/`sponsors`.
-- **Research**: Perplexity gathers live context → Gemini writes the structured report (RAG). Cached client-side in the idea's own Drive file.
-- **News**: as many sources as possible (NewsAPI, GNews, Hacker News, Reddit) then BM25 rerank.
-- **"For you" tab**: AI-matched real tools/services per idea (Perplexity→Gemini), falling back to the curated `sponsors` table. Not paid ads — no fabricated affiliate links; turning specific matches into affiliate links is a manual follow-up requiring the user's own program signups.
+- **Research**: Google Custom Search gathers live context → Gemini writes the structured report (RAG). Cached client-side in the idea's own Drive file.
+- **News**: as many sources as possible (NewsAPI, GNews, Google Search, Hacker News, Reddit) then BM25 rerank.
+- **"For you" tab**: AI-matched real tools/services per idea (Google Search→Gemini), falling back to the curated `sponsors` table. Not paid ads — no fabricated affiliate links; turning specific matches into affiliate links is a manual follow-up requiring the user's own program signups.
+- **Free-tier architecture**: replaced the paid Perplexity API with Google Custom Search (100 free queries/day) + Gemini (already free-tier) — no per-user API keys, no OAuth account-linking (confirmed technically impossible, see Notes below). Since the 100/day quota is shared across every user, Research/News/For-you requests are queued and processed one at a time rather than instantly (see the 2026-08-12 entry below).
 
 ## Status
 
@@ -47,24 +48,47 @@ An app for entrepreneurs to capture business ideas fast and get them from "thoug
       destructive migration to drop the now-unused Postgres tables/bucket —
       not run yet, needs explicit go-ahead).
 
+- [x] **Free-tier + queue pivot (2026-08-12)**: replaced Perplexity with
+      Google Custom Search JSON API (`GOOGLE_SEARCH_API_KEY`/`GOOGLE_SEARCH_CX`,
+      100 free queries/day) across `research`, `news`, and `affiliate-matches`.
+      Since that quota is shared across every user, added a real async queue:
+      `ai_request_queue` table (RLS, own-rows-only), `process-ai-queue` edge
+      function (claims + processes one pending row per call), driven by a
+      `pg_cron` schedule every 2 minutes (migrations `0003`/`0004`). Verified
+      end-to-end: inserted a test row directly, confirmed `pg_cron` picked it
+      up and `process-ai-queue` claimed/processed it within one tick. Client
+      side: `AiQueueService.enqueueAndWait` inserts a row and awaits it via
+      Supabase Realtime (no polling); `DriveResearchService`/`DriveNewsService`/
+      `DriveAffiliateService` all go through it, cache-first via `IdeaCache`.
+      Research/News/For-you tabs now show a "you're in the queue" loading
+      state instead of a plain spinner, and first app open shows a one-time,
+      friendly explainer dialog (`lib/screens/home_screen.dart`) telling
+      control-group testers why results aren't instant. Rebuilt and verified
+      the signed release APK (`flutter clean` + build + 3-point verification:
+      version, signature, and a `strings` grep on `libapp.so` confirming the
+      new code is actually in the binary).
+
 ### Blocked / in progress
 - [x] Rotate the exposed Supabase service-role key + DB password — done.
-- [ ] Google Cloud Console: enable Drive API, add `drive.file` scope + test
-      users, create OAuth client IDs (Web/Android) — needed before the new
-      auth flow can be tested end-to-end (see README §3).
+- [x] Google Cloud Console: Drive API, `drive.file` scope, OAuth client IDs — done.
+- [ ] Google Custom Search's 100/day free quota is shared and gets exhausted
+      quickly with multiple testers — by design (that's what the queue is
+      for), but worth watching; a queued request that lands after the quota
+      is spent for the day will show an error rather than "still queued"
+      (no dedicated quota-exhausted UI state yet — acceptable for a small
+      friends-only control group, revisit before wider testing).
 - [ ] iOS build — deferred by user choice ("Android first"); needs Xcode on
       macOS or a cloud Mac CI, not possible from this Linux machine.
 
 ### Needs user input / later
-- [ ] **Perplexity API key** (`PERPLEXITY_API_KEY`) — required for Research.
-- [ ] **Gemini API key** (`GEMINI_API_KEY`) — required for Research.
-- [ ] NewsAPI / GNews keys — optional (HN + Reddit free sources already work).
-- [ ] Decide: graceful fallback for Research when keys are missing (currently shows a "try again" error state).
+- [ ] Decide: graceful fallback for Research/News/For-you when the daily
+      Google Search quota is exhausted (currently surfaces as a "try again"
+      error once the queued request actually runs and fails).
 - [ ] AdMob integration (later milestone).
 - [ ] Play Store account, store listing, data-safety form — see `RELEASE_CHECKLIST.md`.
 
 ## Notes / gotchas
-- User's original idea ("link Gemini/Perplexity from the user's Google account") is **not possible**: Perplexity has no OAuth, and Gemini OAuth would use our project's quota, not the user's. Google login is used for **identity only**.
+- User's original idea ("link Gemini/Perplexity from the user's Google account") is **not possible**: Perplexity has no OAuth, and Gemini OAuth would use our project's quota, not the user's. Google login is used for **identity only**. (This is also why the later pivot away from Perplexity uses the developer's own shared free-tier keys rather than any form of account-linking.)
 - `sb_secret_...` (service role) and the DB password were exposed in chat once — user must rotate them in the Supabase dashboard.
 - Linux run requires patched `linux/CMakeLists.txt` (native_assets guard) + system deps (`clang`, `ninja-build`, GStreamer dev packages).
 

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'affiliate_service.dart';
+import 'ai_queue_service.dart';
 import 'drive/drive_client.dart';
 import 'idea_store.dart';
 import 'media_service.dart';
@@ -19,18 +20,19 @@ class Backend {
 
   factory Backend(SupabaseClient client, DriveClient drive) {
     // One DriveIdeaStore shared as both the IdeaStore and the IdeaCache used
-    // by research/affiliates — a second instance would keep its own
+    // by research/news/affiliates — a second instance would keep its own
     // Drive-file-id lookup cache and redundantly re-list the Drive folder.
     final ideaStore = DriveIdeaStore(drive);
     final sponsors = SupabaseSponsorService(client);
+    final queue = AiQueueService(client);
     return Backend._(
       client: client,
       ideas: ideaStore,
       media: DriveMediaService(drive),
-      news: SupabaseNewsService(client),
+      news: DriveNewsService(queue, ideaStore),
       sponsors: sponsors,
-      research: DriveResearchService(client, ideaStore),
-      affiliates: DriveAffiliateService(client, ideaStore, sponsors),
+      research: DriveResearchService(queue, ideaStore),
+      affiliates: DriveAffiliateService(queue, ideaStore, sponsors),
     );
   }
 
