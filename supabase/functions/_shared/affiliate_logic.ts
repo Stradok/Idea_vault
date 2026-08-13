@@ -2,9 +2,11 @@
 // endpoint (affiliate-matches/index.ts) and the queue processor.
 
 import { tokenize } from "./rank.ts";
-import { googleSearch } from "./google_search.ts";
+import { tavilySearch } from "./tavily.ts";
+import { fetchWithRetry } from "./http_retry.ts";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+// See research_logic.ts for why this is the "-latest" alias, not a pinned version.
+const GEMINI_MODEL = "gemini-flash-latest";
 
 function buildQuery(title: string, notes?: string | null): string {
   const parts = [title, notes ?? ""].filter((p) => p.trim().length > 0);
@@ -14,14 +16,7 @@ function buildQuery(title: string, notes?: string | null): string {
 }
 
 async function webSearch(query: string): Promise<{ answer: string; citations: string[] }> {
-  const results = await googleSearch(`best tools software services for ${query} business`, {
-    num: 8,
-  });
-  const answer = results
-    .map((r) => `- ${r.title} (${r.displayLink}): ${r.snippet}`)
-    .join("\n");
-  const citations = results.map((r) => r.link).filter((l) => l.length > 0);
-  return { answer, citations };
+  return await tavilySearch(`best tools software services for ${query} business`);
 }
 
 async function geminiMatches(ideaTitle: string, context: string): Promise<unknown[]> {
@@ -37,15 +32,14 @@ async function geminiMatches(ideaTitle: string, context: string): Promise<unknow
     `{ "name": string, "description": string (one sentence, why it fits this idea), ` +
     `"url": string (real homepage URL), "category": string (e.g. "Payments", "Manufacturing", "Marketing") }`;
 
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt, generationConfig: { temperature: 0.4 } }] },
-        ],
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4 },
       }),
     },
   );

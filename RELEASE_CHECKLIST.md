@@ -84,20 +84,22 @@ mobile releases — treat it like a production credential.
 |---|---|---|
 | [Google Play Console](https://play.google.com/console) | $25 one-time | Publishing the Android app |
 | [Apple Developer Program](https://developer.apple.com/programs/) | $99/year | iOS — deferred per your "Android first" choice |
-| Google Custom Search JSON API key + Programmable Search Engine | Free (100 queries/day) | Powers Research/News/For-you (`GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`) |
+| [Tavily](https://tavily.com) API key | Free tier, no card required | Powers Research/For-you web search (`TAVILY_API_KEY`) |
 | Google AI Studio (Gemini) API key | Free tier available | Powers the Research tab (`GEMINI_API_KEY`) |
 
-Without the Google Search/Gemini keys, tapping "Research" on an idea will
-fail — decide whether to get the keys before submitting, or ship v1 with
-News + Capture only and add Research in an update.
+Without the Tavily/Gemini keys, tapping "Research" on an idea will fail —
+decide whether to get the keys before submitting, or ship v1 with News +
+Capture only and add Research in an update.
 
-The 100/day Google Search quota is shared across every user of the app, not
-per-user. Research/News/For-you requests are queued (`ai_request_queue`,
-processed by `process-ai-queue` on a 2-minute `pg_cron` schedule) instead of
-called instantly, so the quota is spent deliberately rather than however
-many people happen to open a tab at once. Fine for a small control group;
-revisit (per-user BYOK, a paid tier, or caching more aggressively) before a
-public launch with real traffic.
+Research/News/For-you requests are queued (`ai_request_queue`, processed by
+`process-ai-queue` on a 2-minute `pg_cron` schedule) instead of called
+instantly — this keeps a small control group's usage predictable rather
+than every open tab firing simultaneously. (This app previously ran on
+Google Custom Search's free tier, which turned out to be structurally
+unreliable — flip-flopping between "quota exceeded" and "no access" well
+under its stated 100/day cap — hence the move to Tavily.) Fine for a small
+control group; revisit (per-user BYOK, a paid tier, or caching more
+aggressively) before a public launch with real traffic.
 
 ## 4. Hosting the legal docs
 

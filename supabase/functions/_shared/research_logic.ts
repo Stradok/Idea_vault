@@ -3,9 +3,14 @@
 // so there's exactly one implementation of the search->Gemini pipeline.
 
 import { tokenize } from "./rank.ts";
-import { googleSearch } from "./google_search.ts";
+import { tavilySearch } from "./tavily.ts";
+import { fetchWithRetry } from "./http_retry.ts";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+// "-latest" alias instead of a pinned version: Google retires versioned
+// models for new-ish projects/keys faster than expected (hit a live 404 on
+// "gemini-2.5-flash" despite it still being listed by the Models API) —
+// the alias always points at whatever's current.
+const GEMINI_MODEL = "gemini-flash-latest";
 
 function buildQuery(title: string, notes?: string | null): string {
   const parts = [title, notes ?? ""].filter((p) => p.trim().length > 0);
@@ -15,12 +20,7 @@ function buildQuery(title: string, notes?: string | null): string {
 }
 
 async function webResearch(query: string): Promise<{ answer: string; citations: string[] }> {
-  const results = await googleSearch(`${query} market competitors cost`, { num: 8 });
-  const answer = results
-    .map((r) => `- ${r.title} (${r.displayLink}): ${r.snippet}`)
-    .join("\n");
-  const citations = results.map((r) => r.link).filter((l) => l.length > 0);
-  return { answer, citations };
+  return await tavilySearch(`${query} market competitors cost`);
 }
 
 async function geminiReport(ideaTitle: string, context: string): Promise<Record<string, unknown>> {
@@ -46,22 +46,14 @@ async function geminiReport(ideaTitle: string, context: string): Promise<Record<
     `  "sources": string[] (the URLs from the context)\n` +
     `}`;
 
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-                generationConfig: { temperature: 0.4 },
-              },
-            ],
-          },
-        ],
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4 },
       }),
     },
   );

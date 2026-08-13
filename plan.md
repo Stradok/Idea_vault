@@ -6,10 +6,10 @@ An app for entrepreneurs to capture business ideas fast and get them from "thoug
 ## Decisions (confirmed)
 - **Identity**: Google Sign-In only (no email/password) — bridged into a Supabase session so edge functions can verify callers.
 - **Storage**: the user's own Google Drive (`drive.file` scope) — ideas, photos, and voice notes are never stored on our servers. Supabase now only hosts stateless edge functions + `profiles`/`sponsors`.
-- **Research**: Google Custom Search gathers live context → Gemini writes the structured report (RAG). Cached client-side in the idea's own Drive file.
-- **News**: as many sources as possible (NewsAPI, GNews, Google Search, Hacker News, Reddit) then BM25 rerank.
-- **"For you" tab**: AI-matched real tools/services per idea (Google Search→Gemini), falling back to the curated `sponsors` table. Not paid ads — no fabricated affiliate links; turning specific matches into affiliate links is a manual follow-up requiring the user's own program signups.
-- **Free-tier architecture**: replaced the paid Perplexity API with Google Custom Search (100 free queries/day) + Gemini (already free-tier) — no per-user API keys, no OAuth account-linking (confirmed technically impossible, see Notes below). Since the 100/day quota is shared across every user, Research/News/For-you requests are queued and processed one at a time rather than instantly (see the 2026-08-12 entry below).
+- **Research**: Tavily gathers live web-search context → Gemini writes the structured report (RAG). Cached client-side in the idea's own Drive file.
+- **News**: as many sources as possible (NewsAPI, GNews, Hacker News, Reddit) then BM25 rerank.
+- **"For you" tab**: AI-matched real tools/services per idea (Tavily→Gemini), falling back to the curated `sponsors` table. Not paid ads — no fabricated affiliate links; turning specific matches into affiliate links is a manual follow-up requiring the user's own program signups.
+- **Free-tier architecture**: replaced the paid Perplexity API with a free search backend + Gemini (already free-tier) — no per-user API keys, no OAuth account-linking (confirmed technically impossible, see Notes below). Started on Google Custom Search (100 free queries/day) but that turned out to be structurally unreliable (see 2026-08-13 entry), so switched to Tavily. Research/News/For-you requests are queued and processed one at a time rather than instantly, both to smooth a shared free-tier key and to keep a small control group's usage predictable.
 
 ## Status
 
@@ -68,22 +68,46 @@ An app for entrepreneurs to capture business ideas fast and get them from "thoug
       version, signature, and a `strings` grep on `libapp.so` confirming the
       new code is actually in the binary).
 
+- [x] **Google Custom Search → Tavily (2026-08-13)**: a real user report
+      ("added an idea 16 hours ago, still no research") led to discovering
+      Google Custom Search was structurally broken for this project — its
+      error flipped between `429 quota exceeded` and `403 does not have
+      access` even well under the 100/day cap, so the free tier was
+      effectively unusable, not just small. User has no budget at all (not
+      even ~$5), which ruled out OpenRouter's `:online` models (briefly
+      tried, reverted — pay-per-use, no free option). Replaced with Tavily
+      (`_shared/tavily.ts`), which is purpose-built for LLM/RAG web search
+      and has a genuinely free, no-card-required tier. Deploying and testing
+      this live surfaced two more real, pre-existing bugs, both fixed:
+      (1) `generationConfig` was nested inside `contents[0].parts[0]`
+      instead of being a sibling of `contents` in both
+      `research_logic.ts`/`affiliate_logic.ts`'s Gemini calls — silently
+      never caught before because Google Search always failed first;
+      (2) `gemini-2.5-flash` is blocked for this project/key even though
+      still listed by the Models API ("no longer available to new users") —
+      switched to the `gemini-flash-latest` alias, which tracks whatever
+      Google currently recommends instead of a version that can be retired
+      out from under a pinned key. Verified the full pipeline end-to-end
+      three ways: a real Research report (kind `research`) and a real
+      For-you match set (kind `affiliate`) both completed successfully with
+      real cited sources; a `news` row was also left for the actual
+      `pg_cron` schedule (not a manual trigger) to pick up on its own
+      2-minute tick, confirming the whole path — cron → claim → Tavily →
+      Gemini → queue result — works unattended, which is what actually
+      matters for a control group nobody is babysitting.
+
 ### Blocked / in progress
 - [x] Rotate the exposed Supabase service-role key + DB password — done.
 - [x] Google Cloud Console: Drive API, `drive.file` scope, OAuth client IDs — done.
-- [ ] Google Custom Search's 100/day free quota is shared and gets exhausted
-      quickly with multiple testers — by design (that's what the queue is
-      for), but worth watching; a queued request that lands after the quota
-      is spent for the day will show an error rather than "still queued"
-      (no dedicated quota-exhausted UI state yet — acceptable for a small
-      friends-only control group, revisit before wider testing).
 - [ ] iOS build — deferred by user choice ("Android first"); needs Xcode on
       macOS or a cloud Mac CI, not possible from this Linux machine.
 
 ### Needs user input / later
-- [ ] Decide: graceful fallback for Research/News/For-you when the daily
-      Google Search quota is exhausted (currently surfaces as a "try again"
-      error once the queued request actually runs and fails).
+- [ ] Decide: graceful fallback for Research/News/For-you if Tavily's free
+      tier is ever exhausted (currently surfaces as a "try again" error once
+      the queued request actually runs and fails) — lower risk than the old
+      Google Search situation since Tavily's free cap is much more generous,
+      but not impossible with enough concurrent testers.
 - [ ] AdMob integration (later milestone).
 - [ ] Play Store account, store listing, data-safety form — see `RELEASE_CHECKLIST.md`.
 
@@ -98,6 +122,6 @@ export PATH="$HOME/flutter/flutter/bin:$HOME/.local/bin:$PATH"
 flutter analyze && flutter test
 flutter build linux --debug
 supabase db push
-supabase functions deploy research news
-supabase secrets set PERPLEXITY_API_KEY=... GEMINI_API_KEY=...
+supabase functions deploy research news affiliate-matches process-ai-queue --use-api
+supabase secrets set TAVILY_API_KEY=... GEMINI_API_KEY=...
 ```

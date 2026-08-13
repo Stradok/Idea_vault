@@ -2,7 +2,6 @@
 // endpoint (news/index.ts) and the queue processor.
 
 import { bm25Score, tokenize } from "./rank.ts";
-import { googleSearch } from "./google_search.ts";
 
 interface Article {
   title: string;
@@ -21,9 +20,6 @@ const USER_AGENT = "IdeaVaultApp/1.0 (business idea research)";
 // ideas. Prefer a short, title-only query, and broaden by dropping terms
 // (not adding them) if that first attempt finds nothing.
 //
-// Capped at 2 (was 4): Google Search is metered on a tight free daily
-// quota shared across every user, and each entry here costs one query
-// against it (see runNews — only the first query calls Google Search).
 function buildQueries(title: string, notes?: string | null): string[] {
   const titleTokens = [...new Set(tokenize(title))];
   const notesTokens = [...new Set(tokenize(notes ?? ""))].filter(
@@ -88,24 +84,6 @@ async function fetchGNews(query: string): Promise<Article[]> {
         publishedAt: String(a.publishedAt ?? new Date().toISOString()),
       };
     });
-  } catch (_) {
-    return [];
-  }
-}
-
-async function fetchGoogleSearch(query: string): Promise<Article[]> {
-  try {
-    const results = await googleSearch(`${query} news`, { num: 8 });
-    return results.map((r) => ({
-      title: r.title,
-      source: r.displayLink || "Web",
-      snippet: r.snippet,
-      url: r.link,
-      // Custom Search's basic JSON response doesn't reliably include
-      // publish dates — recency-ranking these below dated sources is
-      // handled by BM25 relevance, not by publishedAt, for this source.
-      publishedAt: new Date().toISOString(),
-    })).filter((a) => a.url);
   } catch (_) {
     return [];
   }
@@ -186,16 +164,13 @@ export async function runNews(
   let query = queries[0];
   for (let i = 0; i < queries.length; i++) {
     const q = queries[i];
-    const [google, newsapi, gnews, hn, reddit] = await Promise.all([
-      // Google Search is on a tight shared daily quota — spend at most
-      // one query per News load, on the broadest (best) attempt only.
-      i === 0 ? fetchGoogleSearch(q) : Promise.resolve([]),
+    const [newsapi, gnews, hn, reddit] = await Promise.all([
       fetchNewsAPI(q),
       fetchGNews(q),
       fetchHackerNews(q),
       fetchReddit(q),
     ]);
-    all = dedupe([...google, ...newsapi, ...gnews, ...hn, ...reddit]);
+    all = dedupe([...newsapi, ...gnews, ...hn, ...reddit]);
     query = q;
     if (all.length > 0) break;
   }
