@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/idea.dart';
+import '../services/ai_queue_service.dart';
 import '../services/idea_store.dart';
 import '../services/media_service.dart';
 import '../services/reminder_service.dart';
@@ -10,11 +11,17 @@ class IdeaVault extends ChangeNotifier {
   final IdeaStore store;
   final MediaService media;
   final ReminderService reminders;
+  final AiQueueService queue;
   final List<Idea> _ideas = [];
 
   String? _userId;
 
-  IdeaVault({required this.store, required this.media, required this.reminders});
+  IdeaVault({
+    required this.store,
+    required this.media,
+    required this.reminders,
+    required this.queue,
+  });
 
   String? get userId => _userId;
 
@@ -90,6 +97,12 @@ class IdeaVault extends ChangeNotifier {
     await store.deleteIdea(id);
     await media.deleteIdeaMedia(idea);
     await reminders.cancelRevisit(id);
+    try {
+      await queue.cancelForIdea(id);
+    } catch (_) {
+      // Best-effort: a stray queue row for a now-deleted idea is harmless
+      // clutter, not worth failing the whole delete over.
+    }
     _ideas.removeAt(index);
     notifyListeners();
   }

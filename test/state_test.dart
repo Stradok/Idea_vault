@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:idea_vault/models/idea.dart';
+import 'package:idea_vault/services/ai_queue_service.dart';
 import 'package:idea_vault/services/idea_store.dart';
 import 'package:idea_vault/services/media_service.dart';
 import 'package:idea_vault/services/reminder_service.dart';
@@ -77,17 +78,38 @@ class _FakeMedia extends MediaService {
   Future<void> deleteIdeaMedia(Idea idea) async {}
 }
 
+class _FakeQueue implements AiQueueService {
+  final List<String> cancelled = [];
+
+  @override
+  Future<Object?> enqueueAndWait({
+    required String kind,
+    required String title,
+    required String ideaId,
+    String? notes,
+    String? category,
+  }) async =>
+      null;
+
+  @override
+  Future<void> cancelForIdea(String ideaId) async {
+    cancelled.add(ideaId);
+  }
+}
+
 void main() {
   late _FakeStore store;
   late _FakeMedia media;
   late _FakeReminders reminders;
+  late _FakeQueue queue;
   late IdeaVault vault;
 
   setUp(() {
     store = _FakeStore();
     media = _FakeMedia();
     reminders = _FakeReminders();
-    vault = IdeaVault(store: store, media: media, reminders: reminders);
+    queue = _FakeQueue();
+    vault = IdeaVault(store: store, media: media, reminders: reminders, queue: queue);
     vault.setUserId('user-1');
   });
 
@@ -103,6 +125,7 @@ void main() {
     await vault.deleteIdea(idea.id);
     expect(vault.ideas, isEmpty);
     expect(store.deleteCount, 1);
+    expect(queue.cancelled, [idea.id]);
   });
 
   test('addIdea sorts newest first', () async {

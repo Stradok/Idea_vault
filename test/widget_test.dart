@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:idea_vault/models/idea.dart';
 import 'package:idea_vault/screens/home_screen.dart';
+import 'package:idea_vault/services/ai_queue_service.dart';
 import 'package:idea_vault/services/idea_store.dart';
 import 'package:idea_vault/services/media_service.dart';
 import 'package:idea_vault/services/reminder_service.dart';
@@ -66,12 +67,28 @@ class _FakeMedia extends MediaService {
   Future<void> deleteIdeaMedia(Idea idea) async {}
 }
 
+class _FakeQueue implements AiQueueService {
+  @override
+  Future<Object?> enqueueAndWait({
+    required String kind,
+    required String title,
+    required String ideaId,
+    String? notes,
+    String? category,
+  }) async =>
+      null;
+
+  @override
+  Future<void> cancelForIdea(String ideaId) async {}
+}
+
 void main() {
   testWidgets('shows empty state when no ideas exist', (tester) async {
     final vault = IdeaVault(
       store: _FakeStore(),
       media: _FakeMedia(),
       reminders: _FakeReminders(),
+      queue: _FakeQueue(),
     );
     vault.setUserId('user-1');
     await vault.load();
@@ -101,6 +118,7 @@ void main() {
       ]),
       media: _FakeMedia(),
       reminders: _FakeReminders(),
+      queue: _FakeQueue(),
     );
     vault.setUserId('user-1');
     await vault.load();

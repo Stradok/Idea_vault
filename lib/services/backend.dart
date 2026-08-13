@@ -17,6 +17,7 @@ class Backend {
   final NewsService news;
   final SponsorService sponsors;
   final AffiliateService affiliates;
+  final AiQueueService queue;
 
   factory Backend(SupabaseClient client, DriveClient drive) {
     // One DriveIdeaStore shared as both the IdeaStore and the IdeaCache used
@@ -24,7 +25,7 @@ class Backend {
     // Drive-file-id lookup cache and redundantly re-list the Drive folder.
     final ideaStore = DriveIdeaStore(drive);
     final sponsors = SupabaseSponsorService(client);
-    final queue = AiQueueService(client);
+    final queue = SupabaseAiQueueService(client);
     return Backend._(
       client: client,
       ideas: ideaStore,
@@ -33,6 +34,7 @@ class Backend {
       sponsors: sponsors,
       research: DriveResearchService(queue, ideaStore),
       affiliates: DriveAffiliateService(queue, ideaStore, sponsors),
+      queue: queue,
     );
   }
 
@@ -44,5 +46,6 @@ class Backend {
     required this.news,
     required this.sponsors,
     required this.affiliates,
+    required this.queue,
   });
 }

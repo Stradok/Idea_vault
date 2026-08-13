@@ -39,6 +39,7 @@ class DriveAffiliateService implements AffiliateService {
       final result = await _queue.enqueueAndWait(
         kind: 'affiliate',
         title: title,
+        ideaId: ideaId,
         notes: notes,
       );
       // process-ai-queue stores runAffiliateMatch()'s return value (a raw

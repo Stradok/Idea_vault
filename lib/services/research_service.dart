@@ -77,6 +77,7 @@ class DriveResearchService implements AiResearchService {
     final result = await _queue.enqueueAndWait(
       kind: 'research',
       title: title,
+      ideaId: ideaId,
       notes: notes,
     );
     // process-ai-queue stores runResearch()'s return value (the report

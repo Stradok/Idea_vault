@@ -65,6 +65,7 @@ class DriveNewsService implements NewsService {
     final result = await _queue.enqueueAndWait(
       kind: 'news',
       title: title,
+      ideaId: ideaId,
       notes: notes,
     );
     // process-ai-queue stores runNews()'s return value (a raw array)

@@ -109,6 +109,7 @@ class _AppProvidersState extends State<AppProviders> {
       store: _backend.ideas,
       media: _backend.media,
       reminders: _reminders,
+      queue: _backend.queue,
     );
     _reminders.init();
   }
