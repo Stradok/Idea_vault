@@ -42,19 +42,38 @@ class SupabaseAiQueueService implements AiQueueService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Not authenticated');
 
-    final inserted = await _client
+    // Reuse an already-queued request for this idea+kind instead of piling
+    // up a new duplicate every time the user reopens the tab before the
+    // first one finishes — that pile-up is exactly what was making the
+    // queue take forever in practice.
+    final existing = await _client
         .from('ai_request_queue')
-        .insert({
-          'user_id': userId,
-          'kind': kind,
-          'title': title,
-          'notes': notes,
-          'category': category,
-          'idea_id': ideaId,
-        })
         .select('id')
-        .single();
-    final id = inserted['id'] as String;
+        .eq('idea_id', ideaId)
+        .eq('kind', kind)
+        .inFilter('status', ['pending', 'processing'])
+        .order('created_at', ascending: true)
+        .limit(1)
+        .maybeSingle();
+
+    final String id;
+    if (existing != null) {
+      id = existing['id'] as String;
+    } else {
+      final inserted = await _client
+          .from('ai_request_queue')
+          .insert({
+            'user_id': userId,
+            'kind': kind,
+            'title': title,
+            'notes': notes,
+            'category': category,
+            'idea_id': ideaId,
+          })
+          .select('id')
+          .single();
+      id = inserted['id'] as String;
+    }
 
     final completer = Completer<Object?>();
     late final StreamSubscription<List<Map<String, dynamic>>> sub;
