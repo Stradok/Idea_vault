@@ -57,3 +57,6 @@ OAuth_Client_details.md
 
 # Flutter SDK cloned by vercel-build.sh during the web deploy — never commit.
 /_flutter_sdk/
+
+# Private archive (secrets, plans, idea notes) — never push.
+/archive/

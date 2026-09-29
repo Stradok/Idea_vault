@@ -1,6 +1,34 @@
+<div align="center">
+
 # IdeaVault
 
-Capture business ideas, research them with live data, follow relevant news, and get AI-matched tools — all saved to your own Google Drive.
+**Capture business ideas fast. Research them with live data. Keep everything in your own Google Drive.**
+
+![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)
+![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white)
+![Platforms](https://img.shields.io/badge/platforms-Android%20%C2%B7%20Web-lightgrey)
+
+</div>
+
+## Overview
+
+IdeaVault helps entrepreneurs take an idea from "thought" to "plan". Jot an idea down (text, photos, voice notes), then get an AI-generated research report with live sources, relevant news, and real tools and services matched to that specific idea.
+
+Your ideas never touch our servers: they are stored as files in **your own Google Drive**.
+
+## Features
+
+- **Fast capture**: text, photos and voice notes, with reminders and favorites
+- **Live research**: Tavily web search summarized into a structured Gemini report
+- **News tracking**: NewsAPI, GNews, Hacker News and Reddit, reranked with BM25
+- **For you**: tools and services matched to your idea
+- **Private by design**: Google Sign-In only, `drive.file` scope, no idea data in a database
+- **Web and Android**: one Flutter codebase, plus a marketing site in `landing/`
+
+## Contents
+
+[Stack](#stack) · [Setup](#setup) · [Architecture](#architecture) · [Security](#security) · [Legal](#legal)
 
 ## Stack
 
@@ -93,3 +121,8 @@ flutter run
 - The Supabase session (from `signInWithIdToken`) is only used to authenticate calls to the stateless edge functions — no idea data passes through or is stored in Supabase.
 - API keys (Tavily, Gemini, NewsAPI, GNews) live only in edge-function secrets — never in the app.
 - `.env` is gitignored; the anon/publishable key and Google Web client ID are the only identifiers in the app — no secrets.
+
+## Legal
+
+- [Privacy Policy](PRIVACY.md)
+- [Terms of Service](TERMS.md)
