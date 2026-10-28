@@ -154,8 +154,12 @@ class _ResearchTab extends StatefulWidget {
   State<_ResearchTab> createState() => _ResearchTabState();
 }
 
-class _ResearchTabState extends State<_ResearchTab> {
+class _ResearchTabState extends State<_ResearchTab>
+    with AutomaticKeepAliveClientMixin {
   late Future<ResearchReport> _future;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -174,6 +178,7 @@ class _ResearchTabState extends State<_ResearchTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final vault = context.read<IdeaVault>();
     return FutureBuilder<ResearchReport>(
       future: _future,
@@ -580,8 +585,11 @@ class _NewsTab extends StatefulWidget {
   State<_NewsTab> createState() => _NewsTabState();
 }
 
-class _NewsTabState extends State<_NewsTab> {
+class _NewsTabState extends State<_NewsTab> with AutomaticKeepAliveClientMixin {
   late Future<List<NewsItem>> _future;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -601,6 +609,7 @@ class _NewsTabState extends State<_NewsTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<NewsItem>>(
       future: _future,
       builder: (context, snapshot) {
@@ -729,8 +738,11 @@ class _AdsTab extends StatefulWidget {
   State<_AdsTab> createState() => _AdsTabState();
 }
 
-class _AdsTabState extends State<_AdsTab> {
+class _AdsTabState extends State<_AdsTab> with AutomaticKeepAliveClientMixin {
   late Future<List<AffiliateMatch>> _future;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -745,6 +757,7 @@ class _AdsTabState extends State<_AdsTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<AffiliateMatch>>(
       future: _future,
       builder: (context, snapshot) {
