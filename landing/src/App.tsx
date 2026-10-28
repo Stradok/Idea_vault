@@ -4,7 +4,7 @@ import { LiquidEther } from './components/LiquidEther';
 import { TiltedCard } from './components/TiltedCard';
 
 const ANDROID_DOWNLOAD_URL =
-  'https://github.com/Stradok/Idea_vault/releases/latest/download/IdeaVault.apk';
+  'https://github.com/Stradok/Idea_vault/releases/latest';
 
 const FOUNDER_POST_URL =
   'https://www.linkedin.com/posts/amman-faisal-040a68228_your-best-startup-idea-is-probably-sitting-activity-7520076271134072832-YnE_';
@@ -109,7 +109,7 @@ export default function App() {
             </button>
           </div>
           <p className="text-white/30 text-xs mt-4 pointer-events-none">
-            This link always points to the latest test build.
+            Opens the latest release page on GitHub.
           </p>
 
           <div className="mt-8 w-full max-w-3xl pointer-events-auto text-center">
@@ -192,7 +192,7 @@ export default function App() {
           <ol className="space-y-4 text-sm text-white/70">
             <li className="flex gap-3">
               <span className="flex-none w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">1</span>
-              Tap the download button above.
+              Tap the button above, then download IdeaVault.apk from the release page.
             </li>
             <li className="flex gap-3">
               <span className="flex-none w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">2</span>
