@@ -1,9 +1,13 @@
-import { Lightbulb, Sparkles, Newspaper, HardDrive, Apple, Download, CheckCircle2, Clock } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Lightbulb, Sparkles, Newspaper, HardDrive, Apple, Download, CheckCircle2, Clock, Linkedin } from 'lucide-react';
 import { LiquidEther } from './components/LiquidEther';
 import { TiltedCard } from './components/TiltedCard';
 
 const ANDROID_DOWNLOAD_URL =
   'https://github.com/Stradok/Idea_vault/releases/latest/download/IdeaVault.apk';
+
+const FOUNDER_POST_URL =
+  'https://www.linkedin.com/posts/amman-faisal-040a68228_your-best-startup-idea-is-probably-sitting-activity-7520076271134072832-YnE_';
 
 const FEATURES = [
   {
@@ -41,6 +45,25 @@ const STATUS = [
 ];
 
 export default function App() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hd, setHd] = useState(false);
+
+  // Swap the source but keep the playhead and play state.
+  const toggleHd = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const { currentTime, paused } = v;
+    setHd(!hd);
+    v.addEventListener(
+      'loadedmetadata',
+      () => {
+        v.currentTime = currentTime;
+        if (!paused) void v.play();
+      },
+      { once: true },
+    );
+  };
+
   return (
     <div className="min-h-screen w-full bg-background text-foreground font-sans">
       {/* Hero */}
@@ -89,6 +112,38 @@ export default function App() {
             This link always points to the latest test build.
           </p>
         </div>
+      </section>
+
+      {/* About + promo video */}
+      <section className="relative z-10 px-6 pt-20 max-w-3xl mx-auto text-center">
+        <h2 className="text-white/50 text-xs font-semibold tracking-[0.2em] uppercase mb-6">
+          About
+        </h2>
+        <p className="text-white/80 text-base sm:text-lg leading-relaxed mb-4">
+          IdeaVault is your private, AI-powered notepad. It connects to your own
+          Google Drive, so only you can access what you save. Nobody else,
+          including us, can read it.
+        </p>
+        <p className="text-white/60 text-sm sm:text-base leading-relaxed mb-10">
+          Save ideas, to-dos or anything else. IdeaVault researches each one for
+          you, so whenever you open it, every idea already comes with its own
+          research waiting.
+        </p>
+        <video
+          ref={videoRef}
+          className="w-full rounded-2xl border border-border shadow-2xl"
+          src={hd ? '/promo-hd.mp4' : '/promo.mp4'}
+          poster="/promo-poster.jpg"
+          controls
+          playsInline
+          preload="none"
+        />
+        <button
+          onClick={toggleHd}
+          className="mt-3 px-4 py-2 rounded-full bg-white/10 text-white text-xs font-semibold hover:bg-white/15 transition-colors"
+        >
+          {hd ? 'Switch to standard quality' : 'Watch in HD (1080p, 20 MB)'}
+        </button>
       </section>
 
       {/* Features */}
@@ -146,6 +201,26 @@ export default function App() {
               Tap Install, then open IdeaVault and sign in with Google.
             </li>
           </ol>
+        </div>
+      </section>
+
+      {/* Founder */}
+      <section className="relative z-10 px-6 pb-20 max-w-lg mx-auto">
+        <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 text-center">
+          <h2 className="text-sm font-semibold mb-3">About the founder</h2>
+          <p className="text-sm text-white/70 mb-5">
+            IdeaVault is built by Amman Faisal. Read the story behind it in the
+            LinkedIn post.
+          </p>
+          <a
+            href={FOUNDER_POST_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 text-white font-semibold text-sm hover:bg-white/15 transition-colors"
+          >
+            <Linkedin className="w-4 h-4" />
+            Read the post
+          </a>
         </div>
       </section>
 
