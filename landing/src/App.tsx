@@ -67,7 +67,7 @@ export default function App() {
   return (
     <div className="min-h-screen w-full bg-background text-foreground font-sans">
       {/* Hero */}
-      <section className="relative w-full flex items-center justify-center overflow-hidden py-16 sm:py-24">
+      <section className="relative w-full flex items-center justify-center overflow-hidden pt-10 pb-16 sm:pt-12 sm:pb-20">
         <div className="absolute inset-0 z-0">
           <LiquidEther
             colors={['#4f46e5', '#a855f7', '#22d3ee']}
@@ -83,11 +83,11 @@ export default function App() {
         <div className="absolute inset-0 z-[1] bg-gradient-to-b from-background/40 via-background/60 to-background pointer-events-none" />
 
         <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-4xl w-full">
-          <div className="text-5xl mb-4">💡</div>
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-4">
+          <div className="text-4xl mb-2">💡</div>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3">
             IdeaVault
           </h1>
-          <p className="text-base sm:text-lg text-white/70 mb-10 max-w-md">
+          <p className="text-base sm:text-lg text-white/70 mb-6 max-w-xl">
             Capture business ideas, get AI research and matched tools, and
             follow related news — saved straight to your own Google Drive.
           </p>
@@ -112,15 +112,18 @@ export default function App() {
             This link always points to the latest test build.
           </p>
 
-          <div className="mt-12 w-full pointer-events-auto text-center">
+          <div className="mt-8 w-full max-w-3xl pointer-events-auto text-center">
           <video
             ref={videoRef}
             className="w-full rounded-2xl border border-white/10 shadow-[0_20px_80px_rgba(124,92,255,0.45)]"
             src={hd ? '/promo-hd.mp4' : '/promo.mp4'}
             poster="/promo-poster.jpg"
             controls
+            autoPlay
+            muted
+            loop
             playsInline
-            preload="metadata"
+            preload="auto"
           />
           <button
             onClick={toggleHd}
