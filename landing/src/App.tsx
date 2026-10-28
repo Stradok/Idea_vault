@@ -67,7 +67,7 @@ export default function App() {
   return (
     <div className="min-h-screen w-full bg-background text-foreground font-sans">
       {/* Hero */}
-      <section className="relative w-full min-h-[92vh] flex items-center justify-center overflow-hidden">
+      <section className="relative w-full flex items-center justify-center overflow-hidden py-16 sm:py-24">
         <div className="absolute inset-0 z-0">
           <LiquidEther
             colors={['#4f46e5', '#a855f7', '#22d3ee']}
@@ -82,7 +82,7 @@ export default function App() {
         {/* Readability scrim */}
         <div className="absolute inset-0 z-[1] bg-gradient-to-b from-background/40 via-background/60 to-background pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-2xl pointer-events-none">
+        <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-4xl w-full">
           <div className="text-5xl mb-4">💡</div>
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-4">
             IdeaVault
@@ -111,6 +111,24 @@ export default function App() {
           <p className="text-white/30 text-xs mt-4 pointer-events-none">
             This link always points to the latest test build.
           </p>
+
+          <div className="mt-12 w-full pointer-events-auto text-center">
+          <video
+            ref={videoRef}
+            className="w-full rounded-2xl border border-white/10 shadow-[0_20px_80px_rgba(124,92,255,0.45)]"
+            src={hd ? '/promo-hd.mp4' : '/promo.mp4'}
+            poster="/promo-poster.jpg"
+            controls
+            playsInline
+            preload="metadata"
+          />
+          <button
+            onClick={toggleHd}
+            className="mt-3 px-4 py-2 rounded-full bg-white/10 text-white text-xs font-semibold hover:bg-white/15 transition-colors"
+          >
+            {hd ? 'Switch to standard quality' : 'Watch in HD (1080p, 20 MB)'}
+          </button>
+          </div>
         </div>
       </section>
 
@@ -129,21 +147,6 @@ export default function App() {
           you, so whenever you open it, every idea already comes with its own
           research waiting.
         </p>
-        <video
-          ref={videoRef}
-          className="w-full rounded-2xl border border-border shadow-2xl"
-          src={hd ? '/promo-hd.mp4' : '/promo.mp4'}
-          poster="/promo-poster.jpg"
-          controls
-          playsInline
-          preload="none"
-        />
-        <button
-          onClick={toggleHd}
-          className="mt-3 px-4 py-2 rounded-full bg-white/10 text-white text-xs font-semibold hover:bg-white/15 transition-colors"
-        >
-          {hd ? 'Switch to standard quality' : 'Watch in HD (1080p, 20 MB)'}
-        </button>
       </section>
 
       {/* Features */}
@@ -166,17 +169,14 @@ export default function App() {
               captionText={f.title}
               displayOverlayContent
               overlayContent={
-                <div className="text-center px-3">
+                <div className="flex flex-col items-center text-center px-3">
+                  <f.icon className="w-9 h-9 text-white/90 mb-3" strokeWidth={1.5} />
                   <p className="text-white font-semibold text-sm">{f.title}</p>
                   <p className="text-white/70 text-xs mt-1">{f.caption}</p>
                 </div>
               }
             >
-              <div
-                className={`w-full h-full bg-gradient-to-br ${f.gradient} flex items-center justify-center`}
-              >
-                <f.icon className="w-9 h-9 text-white/90" strokeWidth={1.5} />
-              </div>
+              <div className={`w-full h-full bg-gradient-to-br ${f.gradient}`} />
             </TiltedCard>
           ))}
         </div>
