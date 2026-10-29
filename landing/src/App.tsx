@@ -40,7 +40,7 @@ const STATUS = [
   { label: 'Sign in with Google', ok: true },
   { label: 'Capture ideas (text/photo/voice)', ok: true },
   { label: 'Saved to your Google Drive', ok: true },
-  { label: 'Research tab', ok: false },
+  { label: 'Research tab', ok: true },
   { label: 'iOS app', ok: false },
 ];
 
